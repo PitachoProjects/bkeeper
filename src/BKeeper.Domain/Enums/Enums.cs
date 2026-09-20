@@ -32,3 +32,11 @@ public enum NotificationChannel { WhatsApp, Push, Email }
 public enum OutreachSentBy { System, User }
 
 public enum OutreachStatus { Queued, Sent, Delivered, Read, Failed, Replied }
+
+public enum GoalCategory { Strength, Skill, BodyComposition, Endurance, CompetitionEvent, HealthRehab, Consistency, Social }
+
+public enum GoalStatus { Active, Achieved, Paused, Dropped }
+
+public enum GoalProgressSource { Evaluation, BenchmarkRetest, CoachEntry, Automatic }
+
+public enum EvaluationQuestionType { Scale1To5, Nps0To10, Text, YesNo, MultiSelect }

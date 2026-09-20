@@ -60,47 +60,31 @@ onMounted(load)
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 1rem;
+  margin-bottom: 1.25rem;
 }
 input {
-  padding: 0.5rem;
-  border-radius: 6px;
-  border: 1px solid #ccc;
   width: 240px;
-}
-table {
-  width: 100%;
-  border-collapse: collapse;
-  background: white;
-  border-radius: 8px;
-  overflow: hidden;
-}
-th,
-td {
-  text-align: left;
-  padding: 0.6rem 0.8rem;
-  border-bottom: 1px solid #eee;
 }
 tbody tr {
   cursor: pointer;
 }
 tbody tr:hover {
-  background: #f0f0f5;
+  background: var(--color-bg-soft);
 }
 .badge {
   padding: 0.15rem 0.5rem;
   border-radius: 999px;
   font-size: 0.75rem;
-  background: #dff5e1;
-  color: #1e7a34;
+  background: var(--color-success-soft);
+  color: var(--color-success);
 }
 .badge.frozen {
-  background: #e5eefc;
-  color: #1e4d7a;
+  background: var(--color-info-soft);
+  color: var(--color-info);
 }
 .badge.cancelled,
 .badge.lapsed {
-  background: #fbe3e1;
-  color: #a12e24;
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
 }
 </style>

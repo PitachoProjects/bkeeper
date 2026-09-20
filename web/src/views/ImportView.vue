@@ -82,36 +82,34 @@ async function upload() {
 
 <style scoped>
 .hint {
-  color: #666;
+  color: var(--color-text-muted);
   max-width: 640px;
 }
+.hint code {
+  background: var(--color-bg-soft);
+  padding: 0.1rem 0.3rem;
+  border-radius: 4px;
+}
 .card {
-  background: white;
-  border-radius: 8px;
   padding: 1rem 1.25rem;
   margin-top: 1rem;
 }
 .card button {
   margin-left: 0.75rem;
-  padding: 0.5rem 1rem;
-  border-radius: 6px;
-  border: none;
-  background: #1a1a2e;
-  color: white;
-  cursor: pointer;
 }
 .summary {
   display: flex;
   gap: 1.5rem;
   list-style: none;
   padding: 0;
+  font-variant-numeric: tabular-nums;
 }
 .issues {
   margin-top: 1rem;
   font-size: 0.85rem;
-  color: #a12e24;
+  color: var(--color-danger);
 }
 .error {
-  color: #c0392b;
+  color: var(--color-danger);
 }
 </style>

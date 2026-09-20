@@ -222,69 +222,46 @@ onMounted(async () => {
   gap: 0.5rem;
   align-items: center;
 }
-select {
-  padding: 0.45rem;
-  border-radius: 6px;
-  border: 1px solid #ccc;
-}
-table {
-  width: 100%;
-  border-collapse: collapse;
-  background: white;
-  border-radius: 8px;
-  overflow: hidden;
-}
-th,
-td {
-  text-align: left;
-  padding: 0.6rem 0.8rem;
-  border-bottom: 1px solid #eee;
-}
 .badge {
   padding: 0.15rem 0.5rem;
   border-radius: 999px;
   font-size: 0.75rem;
-  background: #eee;
+  background: var(--color-bg-soft);
+  color: var(--color-text-muted);
 }
 .badge.red {
-  background: #fbe3e1;
-  color: #a12e24;
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
 }
 .badge.amber {
-  background: #fdf0d5;
-  color: #92650b;
+  background: var(--color-warning-soft);
+  color: var(--color-warning);
 }
 .badge.info {
-  background: #e5eefc;
-  color: #1e4d7a;
+  background: var(--color-info-soft);
+  color: var(--color-info);
 }
 .actions {
   display: flex;
   gap: 0.4rem;
 }
-button {
+.actions button {
   padding: 0.3rem 0.6rem;
-  border-radius: 6px;
-  border: 1px solid #1a1a2e;
-  background: #1a1a2e;
-  color: white;
-  cursor: pointer;
-}
-button.ghost {
-  background: white;
-  color: #1a1a2e;
+  font-size: 0.8rem;
 }
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.4);
+  background: rgba(0, 0, 0, 0.5);
   display: flex;
   align-items: center;
   justify-content: center;
 }
 .modal {
-  background: white;
-  border-radius: 8px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
   padding: 1.5rem;
   width: 360px;
   display: flex;
@@ -296,13 +273,6 @@ button.ghost {
   flex-direction: column;
   gap: 0.3rem;
   font-size: 0.9rem;
-}
-.modal select,
-.modal textarea {
-  padding: 0.5rem;
-  border-radius: 6px;
-  border: 1px solid #ccc;
-  font-family: inherit;
 }
 .modal-actions {
   display: flex;
@@ -320,7 +290,7 @@ button.ghost {
   gap: 0.3rem;
 }
 .error {
-  color: #c0392b;
+  color: var(--color-danger);
   font-size: 0.85rem;
 }
 </style>

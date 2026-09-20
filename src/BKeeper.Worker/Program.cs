@@ -32,4 +32,10 @@ recurringJobs.AddOrUpdate<OutreachDispatcher>(
     dispatcher => dispatcher.RunForAllBoxesAsync(CancellationToken.None),
     "*/15 * * * *");
 
+// §7 R10/R11: goal-at-risk and evaluation-overdue checks, daily alongside the rule pipeline.
+recurringJobs.AddOrUpdate<GoalsEvaluationsJob>(
+    "goals-evaluations-job",
+    job => job.RunForAllBoxesAsync(DateOnly.FromDateTime(DateTime.UtcNow), CancellationToken.None),
+    "45 5 * * *");
+
 host.Run();

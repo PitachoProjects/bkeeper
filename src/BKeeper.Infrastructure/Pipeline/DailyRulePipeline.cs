@@ -53,6 +53,8 @@ public class DailyRulePipeline(
                 .Join(db.ClassSessions, b => b.SessionId, s => s.Id, (b, s) => new BookingFact(DateOnly.FromDateTime(s.StartsAt.Date), b.Status, b.BookedAt))
                 .ToListAsync(ct);
 
+            await UpdateConsistencyGoalProgressAsync(boxId, member.Id, facts, asOf, ct);
+
             var metrics = MetricsBuilder.Build(member.Id, member.JoinDate, asOf, facts, member.AwayUntil);
             var isFrozenOrAway = member.Status != MemberStatus.Active || (member.InjuryFlagUntil.HasValue && member.InjuryFlagUntil >= asOf);
             if (AlertOrchestrator.IsSuppressed(metrics, isFrozenOrAway)) continue;
@@ -152,6 +154,32 @@ public class DailyRulePipeline(
 
         await outreachQueue.QueueAsync(boxId, member.Id, alertId, OutreachSentBy.System, null,
             decision.Severity, templateKey, member.Language, variables, ct: ct);
+    }
+
+    /// <summary>Plan §9: "consistency goals computed from attendance" — one GoalProgress row per ISO week, auto-updated.</summary>
+    private async Task UpdateConsistencyGoalProgressAsync(Guid boxId, Guid memberId, List<BookingFact> facts, DateOnly asOf, CancellationToken ct)
+    {
+        var consistencyGoals = await db.Goals
+            .Where(g => g.MemberId == memberId && g.Status == GoalStatus.Active && g.Category == GoalCategory.Consistency)
+            .ToListAsync(ct);
+        if (consistencyGoals.Count == 0) return;
+
+        var weekStart = AttendanceMetrics.IsoWeekStart(asOf);
+        var visitsThisWeek = facts.Count(f => f.Status == BookingStatus.Attended && f.SessionDate >= weekStart && f.SessionDate <= asOf);
+
+        foreach (var goal in consistencyGoals)
+        {
+            var existing = await db.GoalProgresses.FirstOrDefaultAsync(p => p.GoalId == goal.Id && p.Date == weekStart, ct);
+            if (existing is null)
+            {
+                db.GoalProgresses.Add(new GoalProgress { BoxId = boxId, GoalId = goal.Id, Date = weekStart, Value = visitsThisWeek, Source = GoalProgressSource.Automatic });
+            }
+            else if (existing.Source == GoalProgressSource.Automatic)
+            {
+                existing.Value = visitsThisWeek;
+                existing.UpdatedAt = DateTimeOffset.UtcNow;
+            }
+        }
     }
 
     private static TimeSpan SlaFor(AlertSeverity severity) => severity switch

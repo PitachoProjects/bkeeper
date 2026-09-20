@@ -45,8 +45,10 @@ public static class DependencyInjection
 
         services.AddScoped<IExcelImportService, ExcelImportService>();
         services.AddBKeeperRules();
+        services.AddScoped<BKeeper.Infrastructure.Alerts.SimpleAlertService>();
         services.AddScoped<DailyRulePipeline>();
         services.AddScoped<EscalationJob>();
+        services.AddScoped<GoalsEvaluationsJob>();
 
         services.AddSingleton<INotificationProvider, LogNotificationProvider>();
         services.AddScoped<OutreachQueueService>();

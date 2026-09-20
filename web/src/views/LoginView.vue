@@ -54,15 +54,17 @@ async function submit() {
   gap: 0.75rem;
   width: 320px;
   padding: 2rem;
-  border-radius: 12px;
-  border: 1px solid #e2e2e2;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-md);
 }
 h1 {
   margin: 0;
 }
 .subtitle {
   margin: 0 0 0.5rem;
-  color: #666;
+  color: var(--color-text-muted);
 }
 label {
   display: flex;
@@ -70,21 +72,8 @@ label {
   gap: 0.25rem;
   font-size: 0.9rem;
 }
-input {
-  padding: 0.5rem;
-  border-radius: 6px;
-  border: 1px solid #ccc;
-}
-button {
-  padding: 0.6rem;
-  border-radius: 6px;
-  border: none;
-  background: #1a1a2e;
-  color: white;
-  cursor: pointer;
-}
 .error {
-  color: #c0392b;
+  color: var(--color-danger);
   font-size: 0.85rem;
 }
 .bootstrap-link {

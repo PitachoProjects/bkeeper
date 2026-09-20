@@ -11,6 +11,7 @@ const router = createRouter({
       component: () => import('@/views/BootstrapView.vue'),
       meta: { public: true },
     },
+    { path: '/f/:token', name: 'public-form', component: () => import('@/views/PublicFormView.vue'), meta: { public: true } },
     { path: '/', redirect: '/members' },
     { path: '/members', name: 'members', component: () => import('@/views/MembersListView.vue') },
     { path: '/members/:id', name: 'member-detail', component: () => import('@/views/MemberDetailView.vue') },

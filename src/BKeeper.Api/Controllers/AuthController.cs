@@ -1,3 +1,4 @@
+using BKeeper.Application.Evaluations;
 using BKeeper.Domain.Entities;
 using BKeeper.Domain.Enums;
 using BKeeper.Infrastructure.Auth;
@@ -27,6 +28,7 @@ public class AuthController(UserManager<ApplicationUser> userManager, JwtTokenSe
 
         var box = new Box { Name = request.BoxName };
         db.Boxes.Add(box);
+        db.EvaluationForms.AddRange(EvaluationFormSeeder.Build(box.Id));
         await db.SaveChangesAsync();
 
         var user = new ApplicationUser
