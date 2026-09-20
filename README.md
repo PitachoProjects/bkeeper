@@ -41,6 +41,11 @@ Sent messages don't go anywhere real yet — there's no WhatsApp/email/push prov
 log-based one (see [docs/DECISIONS.md#d21](docs/DECISIONS.md)) — check the `outreach` table or the
 member page's "Outreach history" to see what would have been sent.
 
+Goals and evaluation forms live on the member page: add a goal and record progress against it, or
+send one of the 6 seeded forms (ONBOARDING, PULSE_D30, PULSE_D90, QUARTERLY, BENCHMARK, EXIT) — it
+queues a link (`/f/{token}`, single-use, expires in 14 days) that opens as a public, no-login page.
+A negative or health-flagged answer creates an alert automatically.
+
 ## Run it locally (without Docker)
 
 ```bash

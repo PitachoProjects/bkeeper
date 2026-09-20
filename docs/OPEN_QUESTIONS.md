@@ -4,6 +4,9 @@ Per plan §0.3: every ambiguity gets a documented default here instead of blocki
 
 ## From this pass (foundation build)
 
+- **No LLM integration exists**, so evaluation free-text answers (injury/price/schedule/coach/motivation
+  "suggested" tags per plan §9) are stored as-is but never auto-tagged. Would need an LLM API key/service
+  configured — out of scope without one.
 - **`MemberProfile` (usual window/days, type mix, persona, baseline) is never populated.** The entity
   exists (Week 3) but no job builds it — R05/R06/R07 (window/type-shift rules) can't run without it,
   and Week 6's `{usual_class}`/`{coach}` template variables fall back to static placeholder text
