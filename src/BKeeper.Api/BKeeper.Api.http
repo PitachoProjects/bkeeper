@@ -1,0 +1,6 @@
+@BKeeper.Api_HostAddress = http://localhost:5145
+
+GET {{BKeeper.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

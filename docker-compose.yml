@@ -1,0 +1,62 @@
+name: bkeeper
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: bkeeper-postgres
+    environment:
+      POSTGRES_DB: bkeeper
+      POSTGRES_USER: bkeeper
+      POSTGRES_PASSWORD: bkeeper
+    volumes:
+      - bkeeper_pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bkeeper"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: infra/docker/api.Dockerfile
+    container_name: bkeeper-api
+    environment:
+      ConnectionStrings__Postgres: "Host=postgres;Port=5432;Database=bkeeper;Username=bkeeper;Password=bkeeper"
+      Jwt__SigningKey: "${JWT_SIGNING_KEY:-dev-signing-key-change-me-please-32chars-min}"
+      Cors__AllowedOrigins__0: "${WEB_ORIGIN:-http://localhost:5173}"
+      ASPNETCORE_ENVIRONMENT: "${ASPNETCORE_ENVIRONMENT:-Development}"
+    ports:
+      - "5080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  worker:
+    build:
+      context: .
+      dockerfile: infra/docker/worker.Dockerfile
+    container_name: bkeeper-worker
+    environment:
+      ConnectionStrings__Postgres: "Host=postgres;Port=5432;Database=bkeeper;Username=bkeeper;Password=bkeeper"
+      Jwt__SigningKey: "${JWT_SIGNING_KEY:-dev-signing-key-change-me-please-32chars-min}"
+    depends_on:
+      api:
+        condition: service_healthy
+
+  web:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: "${API_ORIGIN:-http://localhost:5080}"
+    container_name: bkeeper-web
+    ports:
+      - "5173:80"
+    depends_on:
+      - api
+
+volumes:
+  bkeeper_pgdata:

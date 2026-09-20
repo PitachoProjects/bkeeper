@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/BKeeper.Api/BKeeper.Api.csproj" />
+    <Project Path="src/BKeeper.Application/BKeeper.Application.csproj" />
+    <Project Path="src/BKeeper.Domain/BKeeper.Domain.csproj" />
+    <Project Path="src/BKeeper.Infrastructure/BKeeper.Infrastructure.csproj" />
+    <Project Path="src/BKeeper.Tests.Unit/BKeeper.Tests.Unit.csproj" />
+    <Project Path="src/BKeeper.Worker/BKeeper.Worker.csproj" />
+  </Folder>
+</Solution>

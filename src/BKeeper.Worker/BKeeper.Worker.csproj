@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk.Worker">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UserSecretsId>dotnet-BKeeper.Worker-452f00c0-4c5f-4f78-8448-6b2270bfe7c0</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Hangfire.AspNetCore" Version="1.8.14" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\BKeeper.Application\BKeeper.Application.csproj" />
+    <ProjectReference Include="..\BKeeper.Infrastructure\BKeeper.Infrastructure.csproj" />
+    <ProjectReference Include="..\BKeeper.Domain\BKeeper.Domain.csproj" />
+  </ItemGroup>
+</Project>

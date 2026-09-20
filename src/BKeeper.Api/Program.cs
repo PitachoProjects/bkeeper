@@ -1,0 +1,91 @@
+using System.Text;
+using BKeeper.Infrastructure;
+using BKeeper.Infrastructure.Auth;
+using BKeeper.Infrastructure.Multitenancy;
+using BKeeper.Infrastructure.Persistence;
+using Hangfire;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
+
+var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddControllers()
+    .AddJsonOptions(opt => opt.JsonSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter()));
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen(c => c.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+{
+    In = Microsoft.OpenApi.Models.ParameterLocation.Header,
+    Description = "Paste a JWT: Bearer {token}",
+    Name = "Authorization",
+    Type = Microsoft.OpenApi.Models.SecuritySchemeType.ApiKey,
+}));
+
+builder.Services.AddBKeeperInfrastructure(builder.Configuration);
+
+var jwt = builder.Configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>() ?? new JwtOptions();
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(opt =>
+    {
+        opt.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidIssuer = jwt.Issuer,
+            ValidateAudience = true,
+            ValidAudience = jwt.Audience,
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwt.SigningKey)),
+            ValidateLifetime = true,
+        };
+    });
+builder.Services.AddAuthorization();
+
+var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? ["http://localhost:5173"];
+builder.Services.AddCors(opt => opt.AddDefaultPolicy(p => p
+    .WithOrigins(allowedOrigins)
+    .AllowAnyHeader()
+    .AllowAnyMethod()
+    .AllowCredentials()));
+
+var app = builder.Build();
+
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<BKeeperDbContext>();
+    db.Database.Migrate();
+}
+
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
+
+app.UseCors();
+app.UseAuthentication();
+
+// Scopes the request (and every EF query in it) to the box_id carried in the caller's JWT.
+app.Use(async (context, next) =>
+{
+    var boxClaim = context.User.FindFirst(JwtTokenService.BoxIdClaim)?.Value;
+    if (Guid.TryParse(boxClaim, out var boxId))
+    {
+        var accessor = context.RequestServices.GetRequiredService<CurrentBoxAccessor>();
+        using (accessor.Use(boxId))
+        {
+            await next();
+            return;
+        }
+    }
+    await next();
+});
+
+app.UseAuthorization();
+
+app.MapControllers();
+app.MapHangfireDashboard("/hangfire").RequireAuthorization();
+app.MapGet("/health", () => Results.Ok(new { status = "ok" })).AllowAnonymous();
+
+app.Run();
+
+public partial class Program; // exposed for WebApplicationFactory in integration tests
