@@ -15,6 +15,19 @@ interface AlertListItem {
   ruleCodes: string[]
 }
 
+const TEMPLATE_KEYS = [
+  'WELCOME',
+  'ONB_NUDGE_D3',
+  'MISS_YOU_SOFT',
+  'SCHEDULE_NUDGE',
+  'MILESTONE_50',
+  'ANNIVERSARY',
+  'EVAL_REQUEST',
+  'EVAL_REMINDER',
+  'RENEWAL_REMINDER',
+  'WINBACK_D30',
+]
+
 const alerts = ref<AlertListItem[]>([])
 const outcomes = ref<string[]>([])
 const loading = ref(true)
@@ -23,6 +36,11 @@ const roleFilter = ref('')
 const resolvingId = ref<string | null>(null)
 const outcome = ref('')
 const outcomeNote = ref('')
+const sendingId = ref<string | null>(null)
+const sendMode = ref<'template' | 'custom'>('template')
+const sendTemplate = ref(TEMPLATE_KEYS[2])
+const sendCustomBody = ref('')
+const sendError = ref('')
 
 async function load() {
   loading.value = true
@@ -55,6 +73,28 @@ async function confirmResolve() {
 async function runEscalation() {
   await api.post('/alerts/escalate/run')
   await load()
+}
+
+function startSend(id: string) {
+  sendingId.value = id
+  sendMode.value = 'template'
+  sendTemplate.value = TEMPLATE_KEYS[2]
+  sendCustomBody.value = ''
+  sendError.value = ''
+}
+
+async function confirmSend() {
+  if (!sendingId.value) return
+  sendError.value = ''
+  try {
+    await api.post(`/alerts/${sendingId.value}/outreach`, {
+      templateKey: sendMode.value === 'template' ? sendTemplate.value : null,
+      customBody: sendMode.value === 'custom' ? sendCustomBody.value : null,
+    })
+    sendingId.value = null
+  } catch {
+    sendError.value = 'Could not send — check the member has consent on at least one channel.'
+  }
 }
 
 onMounted(async () => {
@@ -111,6 +151,7 @@ onMounted(async () => {
           <td>{{ new Date(a.dueAt).toLocaleString() }}</td>
           <td class="actions">
             <button v-if="!a.claimedBy" @click="claim(a.id)">Claim</button>
+            <button class="ghost" @click="startSend(a.id)">Send message</button>
             <button @click="startResolve(a.id)">Resolve</button>
           </td>
         </tr>
@@ -136,6 +177,31 @@ onMounted(async () => {
         <div class="modal-actions">
           <button class="ghost" @click="resolvingId = null">Cancel</button>
           <button @click="confirmResolve">Confirm</button>
+        </div>
+      </div>
+    </div>
+
+    <div v-if="sendingId" class="modal-backdrop" @click.self="sendingId = null">
+      <div class="modal">
+        <h2>Send message</h2>
+        <div class="mode-toggle">
+          <label><input type="radio" value="template" v-model="sendMode" /> Template</label>
+          <label><input type="radio" value="custom" v-model="sendMode" /> Custom text</label>
+        </div>
+        <label v-if="sendMode === 'template'">
+          Template
+          <select v-model="sendTemplate">
+            <option v-for="t in TEMPLATE_KEYS" :key="t" :value="t">{{ t.replaceAll('_', ' ') }}</option>
+          </select>
+        </label>
+        <label v-else>
+          Message
+          <textarea v-model="sendCustomBody" rows="4" placeholder="Write your message…"></textarea>
+        </label>
+        <p v-if="sendError" class="error">{{ sendError }}</p>
+        <div class="modal-actions">
+          <button class="ghost" @click="sendingId = null">Cancel</button>
+          <button @click="confirmSend">Send</button>
         </div>
       </div>
     </div>
@@ -242,5 +308,19 @@ button.ghost {
   display: flex;
   justify-content: flex-end;
   gap: 0.5rem;
+}
+.mode-toggle {
+  display: flex;
+  gap: 1rem;
+  font-size: 0.9rem;
+}
+.mode-toggle label {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+.error {
+  color: #c0392b;
+  font-size: 0.85rem;
 }
 </style>

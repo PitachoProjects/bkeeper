@@ -1,9 +1,11 @@
 using BKeeper.Application.Abstractions;
 using BKeeper.Application.Import;
+using BKeeper.Application.Notifications;
 using BKeeper.Infrastructure.Auth;
 using BKeeper.Infrastructure.Identity;
 using BKeeper.Infrastructure.Import;
 using BKeeper.Infrastructure.Multitenancy;
+using BKeeper.Infrastructure.Notifications;
 using BKeeper.Infrastructure.Persistence;
 using BKeeper.Infrastructure.Pipeline;
 using BKeeper.Infrastructure.Rules;
@@ -45,6 +47,10 @@ public static class DependencyInjection
         services.AddBKeeperRules();
         services.AddScoped<DailyRulePipeline>();
         services.AddScoped<EscalationJob>();
+
+        services.AddSingleton<INotificationProvider, LogNotificationProvider>();
+        services.AddScoped<OutreachQueueService>();
+        services.AddScoped<OutreachDispatcher>();
 
 #pragma warning disable CS0618 // simple string overload is obsolete in 1.20 in favor of an options-action; fine for now
         services.AddHangfire(cfg => cfg.UsePostgreSqlStorage(connectionString));

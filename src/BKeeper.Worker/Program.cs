@@ -1,4 +1,5 @@
 using BKeeper.Infrastructure;
+using BKeeper.Infrastructure.Notifications;
 using BKeeper.Infrastructure.Pipeline;
 using Hangfire;
 
@@ -23,6 +24,12 @@ recurringJobs.AddOrUpdate<DailyRulePipeline>(
 recurringJobs.AddOrUpdate<EscalationJob>(
     "escalation-job",
     job => job.RunForAllBoxesAsync(CancellationToken.None),
+    "*/15 * * * *");
+
+// §6.5: sends Queued outreach once it's outside quiet hours, every 15 minutes.
+recurringJobs.AddOrUpdate<OutreachDispatcher>(
+    "outreach-dispatcher",
+    dispatcher => dispatcher.RunForAllBoxesAsync(CancellationToken.None),
     "*/15 * * * *");
 
 host.Run();

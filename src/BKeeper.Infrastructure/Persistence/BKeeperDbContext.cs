@@ -33,6 +33,8 @@ public class BKeeperDbContext(DbContextOptions<BKeeperDbContext> options, ICurre
     public DbSet<RuleConfig> RuleConfigs => Set<RuleConfig>();
     public DbSet<ImportRun> ImportRuns => Set<ImportRun>();
     public DbSet<ImportRowError> ImportRowErrors => Set<ImportRowError>();
+    public DbSet<MemberConsent> MemberConsents => Set<MemberConsent>();
+    public DbSet<Outreach> Outreaches => Set<Outreach>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -51,6 +53,9 @@ public class BKeeperDbContext(DbContextOptions<BKeeperDbContext> options, ICurre
         builder.Entity<Workout>().HasMany(w => w.Tags).WithOne(t => t.Workout).HasForeignKey(t => t.WorkoutId);
         builder.Entity<Alert>().HasMany(a => a.Events).WithOne(e => e.Alert).HasForeignKey(e => e.AlertId);
         builder.Entity<ImportRun>().HasMany(r => r.RowErrors).WithOne(e => e.ImportRun).HasForeignKey(e => e.ImportRunId);
+        builder.Entity<Outreach>().HasOne(o => o.Member).WithMany().HasForeignKey(o => o.MemberId);
+
+        builder.Entity<MemberConsent>().HasIndex(c => new { c.BoxId, c.MemberId, c.Channel }).IsUnique();
 
         builder.Entity<MemberWeek>().Property(w => w.VisitsByWindow).HasJsonConversion();
         builder.Entity<MemberWeek>().Property(w => w.VisitsByType).HasJsonConversion();

@@ -12,6 +12,10 @@ public record MemberDetail(Guid Id, string Name, string? Email, string? Phone, M
 public record MemberNoteDto(Guid Id, string Text, NoteSource Source, bool IsActive, DateTimeOffset CreatedAt);
 public record CreateMemberNoteRequest(string Text);
 public record TimelineItem(string Type, DateTimeOffset At, string Summary);
+public record ConsentDto(NotificationChannel Channel, bool Granted);
+public record SetConsentRequest(NotificationChannel Channel, bool Granted);
+public record OutreachDto(Guid Id, NotificationChannel Channel, string? TemplateKey, string Body, OutreachSentBy SentBy,
+    OutreachStatus Status, bool IsHoldout, DateTimeOffset CreatedAt);
 
 [ApiController]
 [Route("members")]
@@ -89,5 +93,45 @@ public class MembersController(BKeeperDbContext db) : ControllerBase
         note.UpdatedAt = DateTimeOffset.UtcNow;
         await db.SaveChangesAsync();
         return NoContent();
+    }
+
+    /// <summary>Channel consent, defaulting to granted (no row = opt-in) — see MemberConsent's doc comment.</summary>
+    [HttpGet("{id:guid}/consent")]
+    public async Task<ActionResult<List<ConsentDto>>> GetConsent(Guid id)
+    {
+        var rows = await db.MemberConsents.Where(c => c.MemberId == id).ToDictionaryAsync(c => c.Channel, c => c.Granted);
+        var all = Enum.GetValues<NotificationChannel>().Select(ch => new ConsentDto(ch, rows.GetValueOrDefault(ch, true)));
+        return Ok(all.ToList());
+    }
+
+    [HttpPut("{id:guid}/consent")]
+    public async Task<IActionResult> SetConsent(Guid id, SetConsentRequest request)
+    {
+        var member = await db.Members.FindAsync(id);
+        if (member is null) return NotFound();
+
+        var row = await db.MemberConsents.FirstOrDefaultAsync(c => c.MemberId == id && c.Channel == request.Channel);
+        if (row is null)
+        {
+            db.MemberConsents.Add(new MemberConsent { BoxId = member.BoxId, MemberId = id, Channel = request.Channel, Granted = request.Granted });
+        }
+        else
+        {
+            row.Granted = request.Granted;
+            row.UpdatedAt = DateTimeOffset.UtcNow;
+        }
+
+        await db.SaveChangesAsync();
+        return NoContent();
+    }
+
+    [HttpGet("{id:guid}/outreach")]
+    public async Task<ActionResult<List<OutreachDto>>> GetOutreach(Guid id)
+    {
+        var history = await db.Outreaches.Where(o => o.MemberId == id)
+            .OrderByDescending(o => o.CreatedAt)
+            .Select(o => new OutreachDto(o.Id, o.Channel, o.TemplateKey, o.Body, o.SentBy, o.Status, o.IsHoldout, o.CreatedAt))
+            .ToListAsync();
+        return Ok(history);
     }
 }

@@ -4,6 +4,10 @@ Per plan §0.3: every ambiguity gets a documented default here instead of blocki
 
 ## From this pass (foundation build)
 
+- **`MemberProfile` (usual window/days, type mix, persona, baseline) is never populated.** The entity
+  exists (Week 3) but no job builds it — R05/R06/R07 (window/type-shift rules) can't run without it,
+  and Week 6's `{usual_class}`/`{coach}` template variables fall back to static placeholder text
+  because of this gap.
 - **Injury notes vs. `InjuryFlagUntil` suppression.** The domain model has `Member.InjuryFlagUntil`
   (used by the rule engine to suppress alerts), but member notes are freeform text with no structured
   "until" date. Default: notes are informational only; a coach who wants suppression still has to set

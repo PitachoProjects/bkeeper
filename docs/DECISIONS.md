@@ -2,6 +2,17 @@
 
 Extends §2 of [PLAN.md](PLAN.md). Newest first.
 
+## D21 — Week 6 complete: consent, templates, policy engine, log-based provider
+Added `MemberConsent` and `Outreach` entities (plan §4) plus:
+- `NotificationPolicy` (pure function, [src/BKeeper.Application/Notifications/NotificationPolicy.cs](../src/BKeeper.Application/Notifications/NotificationPolicy.cs)) implements the §6.5 flowchart: red never auto-sends (`RequiresHuman`), max 1 automated message per member per 7 days, a deterministic 10% holdout (stable per member via a hash, not a separate assignment table), per-channel consent with a WhatsApp→Push→Email fallback order, and a 21:30-09:00 quiet-hours window that scheduling respects.
+- `TemplateCatalog` — the 10 template keys from plan §10, pt-PT/en, with whitelist-only variable substitution (an unrendered `{placeholder}` fails loudly instead of leaking to a member).
+- **Two-phase send, not one step:** `OutreachQueueService` decides and writes a `Queued` row; `OutreachDispatcher` (a separate 15-min Hangfire job) actually calls the provider once it's outside quiet hours. This split exists because the daily rule pipeline runs at 05:30 — itself inside quiet hours — so "decide" and "send" can't be the same call.
+- `LogNotificationProvider` is the only `INotificationProvider` implementation — logs the message and returns a fake id. **No real WhatsApp/email/push credentials exist**, so nothing is actually delivered to a member yet; this is what lets the whole consent→policy→template→send loop run and be demoed end-to-end today. Upgrade path: implement the interface per real channel and swap the DI registration in `BKeeper.Infrastructure/DependencyInjection.cs` — nothing else changes.
+- Wired into `DailyRulePipeline`: a new amber R01/R02/R03 alert auto-queues `MISS_YOU_SOFT` or `SCHEDULE_NUDGE` (per plan §7's `auto_message` column). R04/R08 never auto-send, matching the catalogue.
+- Coach one-tap send (`POST /alerts/{id}/outreach`) accepts a template key or free text, skips the frequency-cap/holdout gates (those are system-only), still respects consent and quiet hours.
+- Consent model is opt-out, not opt-in (`MemberConsent`'s doc comment explains why — no real consent-capture source exists yet); member page has toggle checkboxes per channel and shows outreach history.
+- **Not built:** delivery-status webhooks, inbound-reply handling, Manager template-approval workflow, `{usual_class}`/`{coach}` are static placeholder text since `MemberProfile`/primary-coach data was never populated (a Week 3 gap, see OPEN_QUESTIONS.md).
+
 ## D20 — Week 5 complete: SLA escalation, claimed-idle release, auto-resolve, auto-expire
 Added to the D16 foundation:
 - `EscalationPolicy` (pure function, [src/BKeeper.Application/Alerts/EscalationPolicy.cs](../src/BKeeper.Application/Alerts/EscalationPolicy.cs)) implements the §6.4 SLA table — red escalates Coach→Manager at 24h, →Owner at 48h; amber at 3d/7d; info never escalates but auto-expires (→ `false_positive_no_action`) at 14d.

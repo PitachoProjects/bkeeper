@@ -28,21 +28,47 @@ interface TimelineItem {
   summary: string
 }
 
+interface Consent {
+  channel: string
+  granted: boolean
+}
+
+interface OutreachItem {
+  id: string
+  channel: string
+  templateKey: string | null
+  body: string
+  sentBy: string
+  status: string
+  isHoldout: boolean
+  createdAt: string
+}
+
 const route = useRoute()
 const memberId = route.params.id as string
 
 const member = ref<MemberDetail | null>(null)
 const notes = ref<MemberNote[]>([])
 const timeline = ref<TimelineItem[]>([])
+const consent = ref<Consent[]>([])
+const outreach = ref<OutreachItem[]>([])
 const newNote = ref('')
 const savingNote = ref(false)
 
 async function load() {
-  ;[member.value, notes.value, timeline.value] = await Promise.all([
+  ;[member.value, notes.value, timeline.value, consent.value, outreach.value] = await Promise.all([
     api.get<MemberDetail>(`/members/${memberId}`),
     api.get<MemberNote[]>(`/members/${memberId}/notes`),
     api.get<TimelineItem[]>(`/members/${memberId}/timeline`),
+    api.get<Consent[]>(`/members/${memberId}/consent`),
+    api.get<OutreachItem[]>(`/members/${memberId}/outreach`),
   ])
+}
+
+async function toggleConsent(c: Consent) {
+  const next = !c.granted
+  await api.put(`/members/${memberId}/consent`, { channel: c.channel, granted: next })
+  c.granted = next
 }
 
 async function addNote() {
@@ -85,6 +111,33 @@ onMounted(load)
           <button class="remove" @click="removeNote(n.id)">✕</button>
         </li>
         <li v-if="notes.filter((n) => n.isActive).length === 0" class="empty">No notes yet.</li>
+      </ul>
+    </section>
+
+    <section class="card">
+      <h2>Consent</h2>
+      <p class="hint">Which channels this member can be messaged on. Defaults to granted until revoked.</p>
+      <ul class="consent">
+        <li v-for="c in consent" :key="c.channel">
+          <label>
+            <input type="checkbox" :checked="c.granted" @change="toggleConsent(c)" />
+            {{ c.channel }}
+          </label>
+        </li>
+      </ul>
+    </section>
+
+    <section class="card">
+      <h2>Outreach history</h2>
+      <ul class="outreach">
+        <li v-for="o in outreach" :key="o.id">
+          <span class="source" :class="o.sentBy.toLowerCase()">{{ o.sentBy }}</span>
+          <span class="channel">{{ o.channel }}</span>
+          <span class="text">{{ o.isHoldout ? '[holdout — no message sent]' : o.body }}</span>
+          <span class="status">{{ o.status }}</span>
+          <span class="date">{{ new Date(o.createdAt).toLocaleString() }}</span>
+        </li>
+        <li v-if="outreach.length === 0" class="empty">No messages sent yet.</li>
       </ul>
     </section>
 
@@ -138,7 +191,9 @@ onMounted(load)
   cursor: pointer;
 }
 .notes,
-.timeline {
+.timeline,
+.outreach,
+.consent {
   list-style: none;
   padding: 0;
   margin: 0;
@@ -147,15 +202,24 @@ onMounted(load)
   gap: 0.4rem;
 }
 .notes li,
-.timeline li {
+.timeline li,
+.outreach li {
   display: flex;
   align-items: center;
   gap: 0.6rem;
   padding: 0.4rem 0;
   border-bottom: 1px solid #f0f0f0;
 }
+.consent li label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  text-transform: capitalize;
+}
 .source,
-.type {
+.type,
+.channel,
+.status {
   font-size: 0.7rem;
   text-transform: uppercase;
   padding: 0.1rem 0.4rem;
@@ -163,7 +227,8 @@ onMounted(load)
   background: #eee;
   color: #555;
 }
-.source.import {
+.source.import,
+.source.system {
   background: #e5eefc;
   color: #1e4d7a;
 }

@@ -1,7 +1,9 @@
 using System.Security.Claims;
+using BKeeper.Application.Notifications;
 using BKeeper.Domain.Alerts;
 using BKeeper.Domain.Entities;
 using BKeeper.Domain.Enums;
+using BKeeper.Infrastructure.Notifications;
 using BKeeper.Infrastructure.Persistence;
 using BKeeper.Infrastructure.Pipeline;
 using Microsoft.AspNetCore.Authorization;
@@ -13,11 +15,12 @@ namespace BKeeper.Api.Controllers;
 public record AlertListItem(Guid Id, Guid MemberId, string MemberName, AlertFamily Family, AlertSeverity Severity,
     AlertStatus Status, UserRole AssignedRole, Guid? ClaimedBy, DateTimeOffset DueAt, List<string> RuleCodes);
 public record ResolveAlertRequest(string Outcome, string? Note);
+public record SendOutreachRequest(string? TemplateKey, string? CustomBody);
 
 [ApiController]
 [Route("alerts")]
 [Authorize]
-public class AlertsController(BKeeperDbContext db, EscalationJob escalationJob) : ControllerBase
+public class AlertsController(BKeeperDbContext db, EscalationJob escalationJob, OutreachQueueService outreachQueue) : ControllerBase
 {
     [HttpGet]
     public async Task<ActionResult<List<AlertListItem>>> List(
@@ -97,6 +100,36 @@ public class AlertsController(BKeeperDbContext db, EscalationJob escalationJob) 
         var boxId = Guid.Parse(User.FindFirst("box_id")!.Value);
         await escalationJob.RunForBoxAsync(boxId, DateTimeOffset.UtcNow);
         return NoContent();
+    }
+
+    /// <summary>Coach one-tap send (plan §10): a template key (rendered + editable client-side before calling)
+    /// or free text. Skips the frequency cap and holdout — those only gate automated sends.</summary>
+    [HttpPost("{id:guid}/outreach")]
+    public async Task<IActionResult> SendOutreach(Guid id, SendOutreachRequest request)
+    {
+        var alert = await db.Alerts.Include(a => a.Member).FirstOrDefaultAsync(a => a.Id == id);
+        if (alert?.Member is null) return NotFound();
+        if (string.IsNullOrWhiteSpace(request.TemplateKey) && string.IsNullOrWhiteSpace(request.CustomBody))
+            return BadRequest("Provide templateKey or customBody.");
+
+        var box = await db.Boxes.FindAsync(alert.BoxId);
+        var variables = new Dictionary<string, string>
+        {
+            ["first_name"] = alert.Member.Name.Split(' ', 2)[0],
+            ["box_name"] = box?.Name ?? "your box",
+            ["usual_class"] = "your usual class",
+            ["coach"] = "your coach",
+            ["form_link"] = "",
+        };
+
+        var outreach = await outreachQueue.QueueAsync(alert.BoxId, alert.MemberId, alert.Id, OutreachSentBy.User, CurrentUserId(),
+            alert.Severity, request.TemplateKey, alert.Member.Language, variables, request.CustomBody);
+
+        db.AlertEvents.Add(new AlertEvent { BoxId = alert.BoxId, AlertId = alert.Id, Type = AlertEventType.Outreach, ActorUserId = CurrentUserId() });
+        alert.LastActivityAt = DateTimeOffset.UtcNow;
+        await db.SaveChangesAsync();
+
+        return outreach is null ? BadRequest("Could not queue the message (no consent on any channel, or unknown template).") : Ok();
     }
 
     private Guid? CurrentUserId() =>

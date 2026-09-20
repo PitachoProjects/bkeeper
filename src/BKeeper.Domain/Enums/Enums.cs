@@ -26,3 +26,9 @@ public enum NoteSource { Coach, Import, Member, System }
 public enum UserRole { Owner, Manager, Coach, Reception, Member }
 
 public enum ImportRunStatus { Pending, Validating, Succeeded, PartialSuccess, Failed }
+
+public enum NotificationChannel { WhatsApp, Push, Email }
+
+public enum OutreachSentBy { System, User }
+
+public enum OutreachStatus { Queued, Sent, Delivered, Read, Failed, Replied }

@@ -1,10 +1,12 @@
 using BKeeper.Application.Alerts;
 using BKeeper.Application.Metrics;
+using BKeeper.Application.Notifications;
 using BKeeper.Application.Rules;
 using BKeeper.Domain.Entities;
 using BKeeper.Domain.Enums;
 using BKeeper.Domain.Rules;
 using BKeeper.Infrastructure.Multitenancy;
+using BKeeper.Infrastructure.Notifications;
 using BKeeper.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -13,10 +15,13 @@ namespace BKeeper.Infrastructure.Pipeline;
 
 /// <summary>
 /// The daily 05:30 job (plan §6.1, steps S4/S8/S9): evaluate every active member against the
-/// enabled rules and create/update alerts. Notification/outreach (S11/S12) and the ML step
-/// (S5-S7) are not built in this pass — see docs/OPEN_QUESTIONS.md.
+/// enabled rules, create/update alerts, and queue the automatic outreach the rule catalogue defines
+/// for R01/R02/R03 amber hits (S11). The ML step (S5-S7) is not built in this pass — see
+/// docs/OPEN_QUESTIONS.md. Queued outreach is actually sent by <see cref="OutreachDispatcher"/>.
 /// </summary>
-public class DailyRulePipeline(BKeeperDbContext db, CurrentBoxAccessor currentBox, IEnumerable<IRule> rules, ILogger<DailyRulePipeline> logger)
+public class DailyRulePipeline(
+    BKeeperDbContext db, CurrentBoxAccessor currentBox, IEnumerable<IRule> rules,
+    OutreachQueueService outreachQueue, ILogger<DailyRulePipeline> logger)
 {
     public async Task RunForAllBoxesAsync(DateOnly asOf, CancellationToken ct = default)
     {
@@ -33,6 +38,7 @@ public class DailyRulePipeline(BKeeperDbContext db, CurrentBoxAccessor currentBo
     public async Task<int> RunForBoxAsync(Guid boxId, DateOnly asOf, CancellationToken ct = default)
     {
         var ruleConfigs = await db.RuleConfigs.ToDictionaryAsync(r => r.RuleCode, ct);
+        var box = await db.Boxes.FindAsync([boxId], ct);
 
         var members = await db.Members
             .Where(m => m.Status == MemberStatus.Active)
@@ -60,7 +66,7 @@ public class DailyRulePipeline(BKeeperDbContext db, CurrentBoxAccessor currentBo
 
             if (hits.Count == 0) continue;
 
-            alertsCreated += await ApplyDecisionsAsync(boxId, member.Id, hits, ruleConfigs, ct);
+            alertsCreated += await ApplyDecisionsAsync(boxId, member, box?.Name ?? "your box", hits, ruleConfigs, ct);
         }
 
         await db.SaveChangesAsync(ct);
@@ -68,9 +74,10 @@ public class DailyRulePipeline(BKeeperDbContext db, CurrentBoxAccessor currentBo
         return alertsCreated;
     }
 
-    private async Task<int> ApplyDecisionsAsync(Guid boxId, Guid memberId, List<RuleHit> hits,
+    private async Task<int> ApplyDecisionsAsync(Guid boxId, Member member, string boxName, List<RuleHit> hits,
         Dictionary<string, RuleConfig> ruleConfigs, CancellationToken ct)
     {
+        var memberId = member.Id;
         var openAlerts = await db.Alerts
             .Where(a => a.MemberId == memberId && a.Status != AlertStatus.Resolved && a.Status != AlertStatus.AutoResolved)
             .ToListAsync(ct);
@@ -108,6 +115,9 @@ public class DailyRulePipeline(BKeeperDbContext db, CurrentBoxAccessor currentBo
                     db.Alerts.Add(alert);
                     db.AlertEvents.Add(new AlertEvent { BoxId = boxId, Alert = alert, Type = AlertEventType.Created });
                     created++;
+
+                    if (decision.Action == FamilyAction.CreateNew && decision.Severity == AlertSeverity.Amber)
+                        await QueueAutoMessageAsync(boxId, member, boxName, alert.Id, decision, ct);
                     break;
 
                 case FamilyAction.AppendToExisting:
@@ -122,6 +132,26 @@ public class DailyRulePipeline(BKeeperDbContext db, CurrentBoxAccessor currentBo
         }
 
         return created;
+    }
+
+    /// <summary>Rule catalogue auto_message column (§7): R01/R03 amber -> MISS_YOU_SOFT, R02 -> SCHEDULE_NUDGE. R04/R08 never auto-send.</summary>
+    private async Task QueueAutoMessageAsync(Guid boxId, Member member, string boxName, Guid alertId, FamilyDecision decision, CancellationToken ct)
+    {
+        string templateKey;
+        if (decision.RuleCodes.Contains("R02")) templateKey = TemplateCatalog.ScheduleNudge;
+        else if (decision.RuleCodes.Contains("R01") || decision.RuleCodes.Contains("R03")) templateKey = TemplateCatalog.MissYouSoft;
+        else return;
+
+        var variables = new Dictionary<string, string>
+        {
+            ["first_name"] = member.Name.Split(' ', 2)[0],
+            ["box_name"] = boxName,
+            ["usual_class"] = "your usual class", // MemberProfile isn't populated yet — see docs/OPEN_QUESTIONS.md
+            ["coach"] = "your coach",
+        };
+
+        await outreachQueue.QueueAsync(boxId, member.Id, alertId, OutreachSentBy.System, null,
+            decision.Severity, templateKey, member.Language, variables, ct: ct);
     }
 
     private static TimeSpan SlaFor(AlertSeverity severity) => severity switch

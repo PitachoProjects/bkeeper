@@ -26,14 +26,20 @@ First run: open http://localhost:5173/bootstrap and create your box + Owner acco
 refuses if a box already exists).
 
 Then, on the **Import** page, upload an `.xlsx` with `Members`, `Classes`, `Attendance` sheets (and
-optionally `Notes` — `member_id`, `note`) per the template in [docs/PLAN.md §4](docs/PLAN.md). Trigger
-the rule engine on demand with:
+optionally `Notes` — `member_id`, `note`) per the template in [docs/PLAN.md §4](docs/PLAN.md).
+
+On-demand triggers (all also run automatically via the Worker's Hangfire jobs — daily at 05:30 for
+rules, every 15 min for escalation/outreach dispatch):
 
 ```bash
-curl -X POST http://localhost:5080/rules/run -H "Authorization: Bearer <token>"
+curl -X POST http://localhost:5080/rules/run              -H "Authorization: Bearer <token>"  # evaluate rules, create alerts
+curl -X POST http://localhost:5080/alerts/escalate/run     -H "Authorization: Bearer <token>"  # SLA escalation, auto-resolve, auto-expire
+curl -X POST http://localhost:5080/outreach/dispatch       -H "Authorization: Bearer <token>"  # send Queued messages (outside quiet hours)
 ```
 
-(it also runs automatically every night at 05:30 via the Worker's Hangfire job).
+Sent messages don't go anywhere real yet — there's no WhatsApp/email/push provider wired up, only a
+log-based one (see [docs/DECISIONS.md#d21](docs/DECISIONS.md)) — check the `outreach` table or the
+member page's "Outreach history" to see what would have been sent.
 
 ## Run it locally (without Docker)
 
