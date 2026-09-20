@@ -44,4 +44,11 @@ recurringJobs.AddOrUpdate<MlScoringJob>(
     job => job.RunForAllBoxesAsync(DateOnly.FromDateTime(DateTime.UtcNow), CancellationToken.None),
     "30 23 * * 0");
 
+// §11/§14: anonymize members cancelled 24+ months ago. Daily is overkill for a monthly-granularity
+// check, but cheap and simple beats a second cron shape to reason about.
+recurringJobs.AddOrUpdate<AnonymizationJob>(
+    "anonymization-job",
+    job => job.RunForAllBoxesAsync(DateOnly.FromDateTime(DateTime.UtcNow), CancellationToken.None),
+    "0 6 * * *");
+
 host.Run();

@@ -16,3 +16,6 @@ web/.env.local
 # OS
 .DS_Store
 Thumbs.db
+
+# DB dumps from scripts/backup.sh — never commit real data
+backups/

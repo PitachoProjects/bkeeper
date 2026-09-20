@@ -1,8 +1,9 @@
 # BKeeper
 
 Retention platform for CrossFit boxes — see [docs/PLAN.md](docs/PLAN.md) for the full product plan,
-[docs/DECISIONS.md](docs/DECISIONS.md) for what this codebase actually builds and why, and
-[docs/OPEN_QUESTIONS.md](docs/OPEN_QUESTIONS.md) for known gaps and defaults.
+[docs/DECISIONS.md](docs/DECISIONS.md) for what this codebase actually builds and why,
+[docs/OPEN_QUESTIONS.md](docs/OPEN_QUESTIONS.md) for known gaps and defaults, and
+[docs/RUNBOOK.md](docs/RUNBOOK.md) for day-to-day operations (backups, scheduled jobs, GDPR requests).
 
 ## Stack
 
@@ -38,6 +39,7 @@ curl -X POST http://localhost:5080/rules/run              -H "Authorization: Bea
 curl -X POST http://localhost:5080/alerts/escalate/run     -H "Authorization: Bearer <token>"  # SLA escalation, auto-resolve, auto-expire
 curl -X POST http://localhost:5080/outreach/dispatch       -H "Authorization: Bearer <token>"  # send Queued messages (outside quiet hours)
 curl -X POST http://localhost:5080/risk-scores/run         -H "Authorization: Bearer <token>"  # weekly ML scoring (shadow mode) — Manager/Owner only
+curl -X POST http://localhost:5080/gdpr/anonymize/run       -H "Authorization: Bearer <token>"  # anonymize members cancelled 24+ months ago
 ```
 
 Sent messages don't go anywhere real yet — there's no WhatsApp/email/push provider wired up, only a
@@ -58,6 +60,12 @@ as a pipeline demo, not a real prediction.
 The **Dashboards** page has four tabs (retention, alert ops, workouts, my week) — cohort retention
 curves, SLA compliance, save rate, holdout-vs-treated, window×type heatmap, class fill, and a coach's
 open-alerts-this-week view. Retention cohorts export as CSV from the page.
+
+GDPR: `GET /members/{id}/gdpr/export` returns every piece of personal data held on a member as one
+JSON bundle; `POST /members/{id}/gdpr/anonymize` scrubs their PII immediately (right-to-be-forgotten).
+Both are audit-logged. `/auth/login` and `/auth/bootstrap` are rate-limited (10 req/min/IP).
+`scripts/backup.sh` / `scripts/restore.sh` do a Postgres backup/restore drill against the running
+stack — see [docs/RUNBOOK.md](docs/RUNBOOK.md).
 
 ## Run it locally (without Docker)
 
@@ -87,7 +95,7 @@ cd ml && python -m pytest tests/
 
 ```
 BKeeper/
-  docs/            PLAN.md, DECISIONS.md, OPEN_QUESTIONS.md
+  docs/            PLAN.md, DECISIONS.md, OPEN_QUESTIONS.md, RUNBOOK.md
   src/
     BKeeper.Domain/         entities, enums, rule contracts — no dependencies
     BKeeper.Application/    metrics, rule implementations, alert orchestration, import contracts
@@ -99,6 +107,7 @@ BKeeper/
   ml/              Python FastAPI scoring service (its own Dockerfile — deployable independently)
     app/           features.py (single source of truth), synthetic.py, train.py, serve.py, explain.py
     tests/         pytest — feature fixtures, no-leakage checks
+  scripts/         backup.sh / restore.sh — Postgres backup/restore drill
   infra/docker/    Dockerfiles for the API and Worker (repo-root build context)
   docker-compose.yml
 ```

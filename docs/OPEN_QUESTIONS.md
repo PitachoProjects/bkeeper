@@ -4,6 +4,15 @@ Per plan §0.3: every ambiguity gets a documented default here instead of blocki
 
 ## From this pass (foundation build)
 
+- **No real platform connector exists.** `IBoxDataConnector` defines the contract (plan §10) but
+  nothing implements it — the plan requires reading the chosen platform's real API docs first, and no
+  platform was ever named. Excel import remains the only ingestion path. Whoever picks a platform
+  needs to implement this interface against that platform's actual API.
+- **No automated backup schedule or off-host backup storage.** `scripts/backup.sh`/`restore.sh` work
+  (drilled live) but nothing runs them on a schedule or ships the dump off the Docker host.
+- **No secrets manager.** All secrets (JWT signing key, ML service token, DB password) are environment
+  variables with dev-only defaults in `docker-compose.yml`. Fine for local dev; must be replaced with
+  real secret management before any real deployment.
 - **Persona distribution and the R07 type-abandonment dashboard aren't built** — both need
   `MemberProfile` populated (usual window/days, type mix, persona), which nothing writes yet (same
   root cause as the earlier `MemberProfile` gap).

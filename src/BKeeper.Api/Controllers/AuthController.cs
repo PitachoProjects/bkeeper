@@ -7,6 +7,7 @@ using BKeeper.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 
 namespace BKeeper.Api.Controllers;
@@ -17,6 +18,7 @@ public record BootstrapRequest(string BoxName, string OwnerEmail, string OwnerPa
 
 [ApiController]
 [Route("auth")]
+[EnableRateLimiting("auth")]
 public class AuthController(UserManager<ApplicationUser> userManager, JwtTokenService tokenService, BKeeperDbContext db) : ControllerBase
 {
     /// <summary>Dev/first-run only: creates the first Box + Owner user. Refuses once any Box exists.</summary>

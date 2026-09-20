@@ -41,6 +41,7 @@ public class BKeeperDbContext(DbContextOptions<BKeeperDbContext> options, ICurre
     public DbSet<EvaluationResponse> EvaluationResponses => Set<EvaluationResponse>();
     public DbSet<EvaluationFormLink> EvaluationFormLinks => Set<EvaluationFormLink>();
     public DbSet<RiskScore> RiskScores => Set<RiskScore>();
+    public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {

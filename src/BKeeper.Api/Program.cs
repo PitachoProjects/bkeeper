@@ -1,10 +1,12 @@
 using System.Text;
+using System.Threading.RateLimiting;
 using BKeeper.Infrastructure;
 using BKeeper.Infrastructure.Auth;
 using BKeeper.Infrastructure.Multitenancy;
 using BKeeper.Infrastructure.Persistence;
 using Hangfire;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 
@@ -44,6 +46,17 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     });
 builder.Services.AddAuthorization();
 
+// §11 hardening: throttle login/bootstrap per client IP to blunt credential-stuffing/brute-force.
+// ponytail: in-memory fixed-window limiter, single instance — fine for one API replica; a
+// multi-instance deploy needs a shared store (e.g. Redis) instead.
+builder.Services.AddRateLimiter(opt =>
+{
+    opt.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    opt.AddPolicy("auth", context => RateLimitPartition.GetFixedWindowLimiter(
+        context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        _ => new FixedWindowRateLimiterOptions { Window = TimeSpan.FromMinutes(1), PermitLimit = 10 }));
+});
+
 var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? ["http://localhost:5173"];
 builder.Services.AddCors(opt => opt.AddDefaultPolicy(p => p
     .WithOrigins(allowedOrigins)
@@ -66,6 +79,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseCors();
+app.UseRateLimiter();
 app.UseAuthentication();
 
 // Scopes the request (and every EF query in it) to the box_id carried in the caller's JWT.

@@ -1,4 +1,5 @@
 using BKeeper.Application.Import;
+using BKeeper.Domain.Entities;
 using BKeeper.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -28,5 +29,14 @@ public class ImportsController(IExcelImportService importService, BKeeperDbConte
     {
         var run = await db.ImportRuns.Include(r => r.RowErrors).FirstOrDefaultAsync(r => r.Id == id);
         return run is null ? NotFound() : Ok(run);
+    }
+
+    /// <summary>Sync monitoring (plan §10/Week10) — Excel is the only ingestion path today; a real
+    /// platform connector would list its own runs here too once one exists (see IBoxDataConnector).</summary>
+    [HttpGet]
+    public async Task<ActionResult<List<ImportRun>>> List()
+    {
+        var runs = await db.ImportRuns.OrderByDescending(r => r.CreatedAt).Take(50).ToListAsync();
+        return Ok(runs);
     }
 }

@@ -2,6 +2,50 @@
 
 Extends §2 of [PLAN.md](PLAN.md). Newest first.
 
+## D25 — Weeks 10-11: connector contract (not an implementation), rate limiting, GDPR tooling, backup drill
+**Week 10 is intentionally left as a contract, not an implementation.** The plan's own instruction is
+"implement the connector for the chosen platform after reading its API docs — do not assume
+endpoints." No platform was named anywhere in this project, so there is nothing to read docs for;
+inventing endpoints against an unspecified API would violate the plan's own rule against guessing.
+`IBoxDataConnector` ([src/BKeeper.Application/Connectors/IBoxDataConnector.cs](../src/BKeeper.Application/Connectors/IBoxDataConnector.cs)) captures the
+pull-since-cursor + webhook contract from the plan so a real implementation has a shape to fill in
+once a platform is chosen. Excel stays its own path rather than being forced through this interface —
+a full-file import has no natural "cursor," and there's no second connector yet to prove the
+abstraction against (an interface with one implementation and no proof it generalizes is exactly the
+premature abstraction to avoid). `GET /imports` is the "sync monitoring" the plan asks for, showing
+Excel's run history — a real connector would list its runs the same way.
+
+**Week 11 (buildable, testable subset — the rest needs infrastructure this project doesn't have, see
+below and OPEN_QUESTIONS.md):**
+- **Rate limiting** on `/auth/*` (10 req/min per IP, `Microsoft.AspNetCore.RateLimiting` — no new
+  dependency) to blunt credential stuffing. In-memory/single-instance; a multi-replica deploy needs a
+  shared store instead (noted in the code and in RUNBOOK.md).
+- **GDPR data export** (`GET /members/{id}/gdpr/export`) — one JSON bundle of every piece of personal
+  data held on a member (profile, notes, bookings, goals, evaluation answers, outreach, consent),
+  matching plan §14's "export contains all personal data" literally.
+- **Anonymization**: `AnonymizationPolicy` (pure — the 24-month-after-cancellation rule from plan
+  §11's own example) drives a daily `AnonymizationJob` that scrubs name/email/phone/birth year for
+  eligible members; `POST /members/{id}/gdpr/anonymize` does it immediately for an explicit
+  right-to-be-forgotten request, bypassing the retention wait.
+- **Audit log** (`AuditLog` entity): every GDPR export and anonymization is recorded
+  (actor, action, target — never the PII itself). Plan §14: "exports and bulk actions are
+  audit-logged."
+- **Backup/restore drill**: `scripts/backup.sh` / `scripts/restore.sh` — actually run against the live
+  stack while building this (not just written and left untested): a `pg_dump` was taken, restored
+  into a scratch database on the same Postgres container, and verified to have the same row counts as
+  the live database, then dropped. Manual/cron-it-yourself, no automated schedule.
+- `docker-compose.yml` got `restart: unless-stopped` on all five services (a real, if small,
+  production-readiness improvement — containers now survive a host reboot or an unhandled crash).
+
+**Explicitly not built**, because it needs infrastructure this project doesn't have access to: Key
+Vault/secrets-manager integration (no Azure/cloud environment here — secrets are env vars with dev
+defaults, documented in RUNBOOK.md as "change before real deployment"), App Insights/external
+alerting on job failures (Hangfire's own dashboard is the only failure visibility), an experiment
+framework beyond what Week 6/9 already built (holdout assignment + the holdout-vs-treated dashboard
+comparison *are* the causal-impact mechanism the plan asks for; message A/B variants are not), and a
+consent ledger with full history (D21's opt-out MemberConsent model already covers the functional
+need without an audit trail per consent change).
+
 ## D24 — Week 9 complete: dashboards (retention, alert ops, workouts, my week)
 `GET /dashboards/{retention|alerts|workouts|my-week}` plus a retention CSV export:
 - **Retention overview**: active/new/churned/net/monthly-churn, computed directly from `Member`

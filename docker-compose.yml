@@ -4,6 +4,7 @@ services:
   postgres:
     image: postgres:16-alpine
     container_name: bkeeper-postgres
+    restart: unless-stopped
     environment:
       POSTGRES_DB: bkeeper
       POSTGRES_USER: bkeeper
@@ -23,6 +24,7 @@ services:
       context: ./ml
       dockerfile: Dockerfile
     container_name: bkeeper-ml
+    restart: unless-stopped
     environment:
       BKEEPER_ML_SERVICE_TOKEN: "${ML_SERVICE_TOKEN:-dev-ml-token-change-me}"
     volumes:
@@ -35,6 +37,7 @@ services:
       context: .
       dockerfile: infra/docker/api.Dockerfile
     container_name: bkeeper-api
+    restart: unless-stopped
     environment:
       ConnectionStrings__Postgres: "Host=postgres;Port=5432;Database=bkeeper;Username=bkeeper;Password=bkeeper"
       Jwt__SigningKey: "${JWT_SIGNING_KEY:-dev-signing-key-change-me-please-32chars-min}"
@@ -53,6 +56,7 @@ services:
       context: .
       dockerfile: infra/docker/worker.Dockerfile
     container_name: bkeeper-worker
+    restart: unless-stopped
     environment:
       ConnectionStrings__Postgres: "Host=postgres;Port=5432;Database=bkeeper;Username=bkeeper;Password=bkeeper"
       Jwt__SigningKey: "${JWT_SIGNING_KEY:-dev-signing-key-change-me-please-32chars-min}"
@@ -69,6 +73,7 @@ services:
       args:
         VITE_API_URL: "${API_ORIGIN:-http://localhost:5080}"
     container_name: bkeeper-web
+    restart: unless-stopped
     ports:
       - "5173:80"
     depends_on:
