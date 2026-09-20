@@ -40,6 +40,7 @@ public class BKeeperDbContext(DbContextOptions<BKeeperDbContext> options, ICurre
     public DbSet<EvaluationForm> EvaluationForms => Set<EvaluationForm>();
     public DbSet<EvaluationResponse> EvaluationResponses => Set<EvaluationResponse>();
     public DbSet<EvaluationFormLink> EvaluationFormLinks => Set<EvaluationFormLink>();
+    public DbSet<RiskScore> RiskScores => Set<RiskScore>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -66,6 +67,8 @@ public class BKeeperDbContext(DbContextOptions<BKeeperDbContext> options, ICurre
         builder.Entity<MemberConsent>().HasIndex(c => new { c.BoxId, c.MemberId, c.Channel }).IsUnique();
         builder.Entity<EvaluationForm>().HasIndex(f => new { f.BoxId, f.Key }).IsUnique();
         builder.Entity<EvaluationFormLink>().HasIndex(l => l.Token).IsUnique();
+        builder.Entity<RiskScore>().HasIndex(r => new { r.BoxId, r.MemberId, r.SnapshotWeek }).IsUnique();
+        builder.Entity<RiskScore>().Property(r => r.TopReasons).HasJsonConversion();
 
         builder.Entity<MemberWeek>().Property(w => w.VisitsByWindow).HasJsonConversion();
         builder.Entity<MemberWeek>().Property(w => w.VisitsByType).HasJsonConversion();

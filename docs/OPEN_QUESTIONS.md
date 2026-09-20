@@ -4,6 +4,10 @@ Per plan §0.3: every ambiguity gets a documented default here instead of blocki
 
 ## From this pass (foundation build)
 
+- **The ML model has never seen real data.** Its synthetic-backtest metrics (AUC 0.85 etc.) validate
+  that the pipeline runs correctly end-to-end, not that the model will perform well on a real box's
+  data. Plan §8 is explicit that the first real backtest (Week 8/12 on real data) decides the actual
+  go-live thresholds — that gate isn't evaluated anywhere in this codebase yet.
 - **No LLM integration exists**, so evaluation free-text answers (injury/price/schedule/coach/motivation
   "suggested" tags per plan §9) are stored as-is but never auto-tagged. Would need an LLM API key/service
   configured — out of scope without one.

@@ -1,9 +1,11 @@
 using BKeeper.Application.Abstractions;
 using BKeeper.Application.Import;
+using BKeeper.Application.Ml;
 using BKeeper.Application.Notifications;
 using BKeeper.Infrastructure.Auth;
 using BKeeper.Infrastructure.Identity;
 using BKeeper.Infrastructure.Import;
+using BKeeper.Infrastructure.Ml;
 using BKeeper.Infrastructure.Multitenancy;
 using BKeeper.Infrastructure.Notifications;
 using BKeeper.Infrastructure.Persistence;
@@ -53,6 +55,10 @@ public static class DependencyInjection
         services.AddSingleton<INotificationProvider, LogNotificationProvider>();
         services.AddScoped<OutreachQueueService>();
         services.AddScoped<OutreachDispatcher>();
+
+        services.Configure<MlServiceOptions>(config.GetSection(MlServiceOptions.SectionName));
+        services.AddHttpClient<IMlScoringClient, HttpMlScoringClient>(c => c.Timeout = TimeSpan.FromSeconds(30));
+        services.AddScoped<MlScoringJob>();
 
 #pragma warning disable CS0618 // simple string overload is obsolete in 1.20 in favor of an options-action; fine for now
         services.AddHangfire(cfg => cfg.UsePostgreSqlStorage(connectionString));

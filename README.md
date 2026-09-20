@@ -7,8 +7,9 @@ Retention platform for CrossFit boxes — see [docs/PLAN.md](docs/PLAN.md) for t
 ## Stack
 
 - **Backend:** .NET 8 (`BKeeper.Api`, `BKeeper.Worker`), EF Core + PostgreSQL, Hangfire
+- **ML:** Python 3.12 + FastAPI + scikit-learn + LightGBM + SHAP (`ml/`) — churn-risk scoring, shadow mode
 - **Frontend:** Vue 3 + TypeScript + Vite + Pinia + Vue Router (`web/`)
-- **Infra:** Docker Compose (project name `bkeeper`) — Postgres, API, Worker, Web as four
+- **Infra:** Docker Compose (project name `bkeeper`) — Postgres, API, Worker, ML, Web as five
   independently-buildable containers (see [docs/DECISIONS.md#d15](docs/DECISIONS.md) for how the
   frontend/backend split works for deployment)
 
@@ -20,6 +21,7 @@ docker compose up -d --build
 
 - API: http://localhost:5080 (Swagger at `/swagger`, health at `/health`)
 - Web: http://localhost:5173
+- ML service: http://localhost:8090 (health at `/health`) — auto-trains a synthetic-data model on first boot
 - Postgres: localhost:5432 (`bkeeper`/`bkeeper`/`bkeeper`)
 
 First run: open http://localhost:5173/bootstrap and create your box + Owner account (works once —
@@ -35,6 +37,7 @@ rules, every 15 min for escalation/outreach dispatch):
 curl -X POST http://localhost:5080/rules/run              -H "Authorization: Bearer <token>"  # evaluate rules, create alerts
 curl -X POST http://localhost:5080/alerts/escalate/run     -H "Authorization: Bearer <token>"  # SLA escalation, auto-resolve, auto-expire
 curl -X POST http://localhost:5080/outreach/dispatch       -H "Authorization: Bearer <token>"  # send Queued messages (outside quiet hours)
+curl -X POST http://localhost:5080/risk-scores/run         -H "Authorization: Bearer <token>"  # weekly ML scoring (shadow mode) — Manager/Owner only
 ```
 
 Sent messages don't go anywhere real yet — there's no WhatsApp/email/push provider wired up, only a
@@ -46,6 +49,12 @@ send one of the 6 seeded forms (ONBOARDING, PULSE_D30, PULSE_D90, QUARTERLY, BEN
 queues a link (`/f/{token}`, single-use, expires in 14 days) that opens as a public, no-login page.
 A negative or health-flagged answer creates an alert automatically.
 
+Churn risk (plan §8, R13) shows up on the member page as a "Churn risk" card, visible to Manager/Owner
+only — it's **shadow mode**: scores are computed and stored weekly (or on demand via the endpoint
+above) but never create an alert. The model was trained on synthetic data (see
+[docs/DECISIONS.md#d23](docs/DECISIONS.md)) since no real export exists yet — treat the risk numbers
+as a pipeline demo, not a real prediction.
+
 ## Run it locally (without Docker)
 
 ```bash
@@ -56,6 +65,9 @@ docker compose up -d postgres
 dotnet run --project src/BKeeper.Api
 dotnet run --project src/BKeeper.Worker
 
+# ML service
+cd ml && pip install -r requirements.txt && uvicorn app.serve:app --reload --port 8090
+
 # Frontend
 cd web && npm install && npm run dev
 ```
@@ -64,6 +76,7 @@ cd web && npm install && npm run dev
 
 ```bash
 dotnet test src/BKeeper.Tests.Unit
+cd ml && python -m pytest tests/
 ```
 
 ## Repo layout
@@ -79,6 +92,9 @@ BKeeper/
     BKeeper.Worker/         Hangfire host (daily rule run)
     BKeeper.Tests.Unit/     xunit — rules, metrics, alert orchestration, workout classifier
   web/             Vue 3 SPA (its own Dockerfile — deployable independently)
+  ml/              Python FastAPI scoring service (its own Dockerfile — deployable independently)
+    app/           features.py (single source of truth), synthetic.py, train.py, serve.py, explain.py
+    tests/         pytest — feature fixtures, no-leakage checks
   infra/docker/    Dockerfiles for the API and Worker (repo-root build context)
   docker-compose.yml
 ```

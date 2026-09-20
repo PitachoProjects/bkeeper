@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { api } from '@/lib/api'
+import { useAuthStore } from '@/stores/auth'
 
 interface MemberDetail {
   id: string
@@ -70,12 +71,23 @@ interface FormSummary {
   questionCount: number
 }
 
+interface RiskScore {
+  snapshotWeek: string
+  pChurn28d: number
+  band: string
+  topReasons: string[]
+  modelVersion: string
+}
+
 const GOAL_CATEGORIES = ['Strength', 'Skill', 'BodyComposition', 'Endurance', 'CompetitionEvent', 'HealthRehab', 'Consistency', 'Social']
 
 const route = useRoute()
 const memberId = route.params.id as string
+const auth = useAuthStore()
+const canSeeRisk = computed(() => auth.role === 'Manager' || auth.role === 'Owner')
 
 const member = ref<MemberDetail | null>(null)
+const riskScore = ref<RiskScore | null>(null)
 const notes = ref<MemberNote[]>([])
 const timeline = ref<TimelineItem[]>([])
 const consent = ref<Consent[]>([])
@@ -101,6 +113,10 @@ async function load() {
     api.get<GoalItem[]>(`/members/${memberId}/goals`),
     api.get<FormSummary[]>('/forms'),
   ])
+
+  if (canSeeRisk.value) {
+    riskScore.value = await api.get<RiskScore | null>(`/risk-scores/members/${memberId}`)
+  }
 }
 
 async function addGoal() {
@@ -169,6 +185,20 @@ onMounted(load)
   <div v-if="member">
     <h1>{{ member.name }}</h1>
     <p class="meta">{{ member.email }} · {{ member.phone }} · joined {{ member.joinDate }}</p>
+
+    <section v-if="canSeeRisk" class="card">
+      <h2>Churn risk <span class="shadow-tag">shadow mode</span></h2>
+      <p class="hint">ML prediction (plan §8) — not used to drive alerts yet; visible to Manager/Owner only.</p>
+      <div v-if="riskScore" class="risk-row">
+        <span class="badge" :class="riskScore.band">{{ riskScore.band }}</span>
+        <span class="text">{{ (riskScore.pChurn28d * 100).toFixed(1) }}% chance of churn in 28 days</span>
+        <span class="date">week of {{ riskScore.snapshotWeek }} · model {{ riskScore.modelVersion }}</span>
+      </div>
+      <ul v-if="riskScore && riskScore.topReasons.length" class="reasons">
+        <li v-for="(r, i) in riskScore.topReasons" :key="i">{{ r }}</li>
+      </ul>
+      <p v-if="!riskScore" class="empty">No score yet — runs weekly (Sunday), or trigger it from the alert inbox.</p>
+    </section>
 
     <section class="card">
       <h2>Notes</h2>
@@ -408,5 +438,44 @@ code {
 }
 .empty {
   color: var(--color-text-faint);
+}
+.shadow-tag {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: var(--color-text-faint);
+  border: 1px solid var(--color-border-strong);
+  border-radius: 4px;
+  padding: 0.1rem 0.35rem;
+  margin-left: 0.5rem;
+  vertical-align: middle;
+}
+.risk-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+.badge {
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  background: var(--color-bg-soft);
+  color: var(--color-text-muted);
+  text-transform: capitalize;
+}
+.badge.red {
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+}
+.badge.amber {
+  background: var(--color-warning-soft);
+  color: var(--color-warning);
+}
+.reasons {
+  list-style: disc;
+  margin: 0.5rem 0 0 1.25rem;
+  padding: 0;
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
 }
 </style>

@@ -27,6 +27,10 @@ var jwt = builder.Configuration.GetSection(JwtOptions.SectionName).Get<JwtOption
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(opt =>
     {
+        // Without this, ASP.NET Core silently remaps the "role" (and "sub"/"email") claim to its
+        // long-form ClaimTypes.* URI on every inbound token — so `User.FindFirst("role")` reads as
+        // written in JwtTokenService return null, even though the claim is right there in the JWT.
+        opt.MapInboundClaims = false;
         opt.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuer = true,

@@ -38,4 +38,10 @@ recurringJobs.AddOrUpdate<GoalsEvaluationsJob>(
     job => job.RunForAllBoxesAsync(DateOnly.FromDateTime(DateTime.UtcNow), CancellationToken.None),
     "45 5 * * *");
 
+// §8/D10: weekly churn-risk scoring (shadow mode, R13), Sunday 23:30.
+recurringJobs.AddOrUpdate<MlScoringJob>(
+    "ml-scoring-job",
+    job => job.RunForAllBoxesAsync(DateOnly.FromDateTime(DateTime.UtcNow), CancellationToken.None),
+    "30 23 * * 0");
+
 host.Run();
