@@ -4,6 +4,11 @@ Per plan §0.3: every ambiguity gets a documented default here instead of blocki
 
 ## From this pass (foundation build)
 
+- **Persona distribution and the R07 type-abandonment dashboard aren't built** — both need
+  `MemberProfile` populated (usual window/days, type mix, persona), which nothing writes yet (same
+  root cause as the earlier `MemberProfile` gap).
+- **No celebrations feed on the coach "my week" dashboard** — R09 (milestone alerts: 25/50/100 classes,
+  anniversaries, PRs) isn't implemented, so there's nothing to show there yet.
 - **The ML model has never seen real data.** Its synthetic-backtest metrics (AUC 0.85 etc.) validate
   that the pipeline runs correctly end-to-end, not that the model will perform well on a real box's
   data. Plan §8 is explicit that the first real backtest (Week 8/12 on real data) decides the actual

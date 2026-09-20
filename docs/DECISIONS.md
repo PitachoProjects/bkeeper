@@ -2,6 +2,32 @@
 
 Extends §2 of [PLAN.md](PLAN.md). Newest first.
 
+## D24 — Week 9 complete: dashboards (retention, alert ops, workouts, my week)
+`GET /dashboards/{retention|alerts|workouts|my-week}` plus a retention CSV export:
+- **Retention overview**: active/new/churned/net/monthly-churn, computed directly from `Member`
+  (no new tables). "Lapsed" is computed at query time (active status, no visit ≥45 days) rather than
+  stored, matching plan §5's definition literally.
+- **Cohort retention curves** and the **tenure-at-churn histogram** are pure functions
+  (`CohortAnalysis`, [src/BKeeper.Application/Dashboards/CohortAnalysis.cs](../src/BKeeper.Application/Dashboards/CohortAnalysis.cs)) — the only genuinely
+  algorithmic part of this week; the rest is SQL-shaped aggregation that doesn't benefit from being
+  forced into "pure function" form, so it lives directly in `DashboardsController`.
+- **Alert operations**: volume by severity/family, SLA compliance %, avg time-to-claim, outcomes mix,
+  save rate, and a holdout-vs-treated return-rate comparison (the plan §13 causal check — only
+  meaningful once there's enough `Outreach` volume with `IsHoldout` set to compare).
+- **Workout mix**: window×type heatmap and class-fill-by-slot, computed live from
+  `Booking`/`ClassSession`/`WorkoutTag` over the last 12 weeks. Persona distribution and the R07
+  type-abandonment aggregate are **not built** — both depend on `MemberProfile` being populated,
+  which is the Week 3 gap already tracked in OPEN_QUESTIONS.md.
+- **Coach "my week"**: open alerts assigned to Coach or claimed by the caller, due-this-week and
+  resolved-this-week counts. No celebrations feed (R09 milestone rule isn't built).
+- **Another real bug found and fixed** while wiring the CSV export: `ActionResult<T>.Value` is `null`
+  when the action method returned via `Ok(x)` — the implicit `T -> ActionResult<T>` conversion that
+  populates `.Value` only fires on a bare `return dto;`, not through `Ok()` (which returns a plain
+  `ActionResult`). The export endpoint called `(await Retention()).Value` and got null every time,
+  404-ing unconditionally. Fixed by splitting the DTO-building logic into a private method both the
+  GET endpoint and the export call directly — a reusable pattern for any endpoint that wants another
+  action's data. Grepped the rest of the controllers for the same mistake; none found.
+
 ## D23 — Week 8 complete: ML scoring service, shadow mode (R13)
 A Python 3.12 FastAPI service (`ml/`) — D2's own choice — with its own Docker image and Compose
 service (`ml`, port 8090), independent of the .NET services:

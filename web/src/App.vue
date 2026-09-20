@@ -15,6 +15,7 @@ const route = useRoute()
       <nav>
         <RouterLink to="/members">Members</RouterLink>
         <RouterLink to="/alerts">Alert inbox</RouterLink>
+        <RouterLink to="/dashboards">Dashboards</RouterLink>
         <RouterLink to="/import">Import</RouterLink>
       </nav>
       <div class="theme-switch" role="group" aria-label="Theme">

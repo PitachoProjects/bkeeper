@@ -55,6 +55,10 @@ above) but never create an alert. The model was trained on synthetic data (see
 [docs/DECISIONS.md#d23](docs/DECISIONS.md)) since no real export exists yet — treat the risk numbers
 as a pipeline demo, not a real prediction.
 
+The **Dashboards** page has four tabs (retention, alert ops, workouts, my week) — cohort retention
+curves, SLA compliance, save rate, holdout-vs-treated, window×type heatmap, class fill, and a coach's
+open-alerts-this-week view. Retention cohorts export as CSV from the page.
+
 ## Run it locally (without Docker)
 
 ```bash
