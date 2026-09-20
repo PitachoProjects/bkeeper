@@ -2,6 +2,17 @@
 
 Extends §2 of [PLAN.md](PLAN.md). Newest first.
 
+## D20 — Week 5 complete: SLA escalation, claimed-idle release, auto-resolve, auto-expire
+Added to the D16 foundation:
+- `EscalationPolicy` (pure function, [src/BKeeper.Application/Alerts/EscalationPolicy.cs](../src/BKeeper.Application/Alerts/EscalationPolicy.cs)) implements the §6.4 SLA table — red escalates Coach→Manager at 24h, →Owner at 48h; amber at 3d/7d; info never escalates but auto-expires (→ `false_positive_no_action`) at 14d.
+- Claimed-but-idle release: a `Claimed`/`InProgress` alert with no activity for 48h (red) / 5 days (amber) drops back to `New` so it re-enters the pool (and can be re-escalated on the next sweep).
+- Auto-resolve on return: any member with 2+ attended visits in the last 10 days has all their open alerts closed as `AutoResolved`/`returned` — this is the "unassisted return" metric the plan tracks for false-positive rate.
+- Snoozed alerts wake to `New` once `SnoozeUntil` passes.
+- All of the above runs as `EscalationJob`, scheduled every 15 minutes via Hangfire in the Worker, and is also triggerable on demand via `POST /alerts/escalate/run` (useful for demos/ops, mirrors the dry-run pattern from `/rules/run`).
+- **Simplification carried from D16:** alerts now always start `AssignedRole = Coach` (previously red started at Manager) so a single escalation ladder covers both severities — see the note in `EscalationPolicy`'s doc comment for why red's plan-spec "Coach + Manager from the start" dual-visibility doesn't fit a single-assignee-role model.
+- Outcome is now a closed vocabulary (`OutcomeTaxonomy`, plan §6.4) enforced server-side; `GET /alerts/outcomes` feeds the frontend's resolve dropdown (replacing an ad-hoc `window.prompt`).
+- **Not built in this pass:** push notifications and the 08:00/weekly digest (Week 6 territory — the "Push/digest" column of the SLA table).
+
 ## D14 — Rename to BKeeper
 Product/repo renamed from BlackKeeper to **BKeeper** at the owner's request. Namespaces, solution
 name, Docker Compose project name, and all docs use BKeeper.

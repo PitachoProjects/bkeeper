@@ -44,6 +44,7 @@ public static class DependencyInjection
         services.AddScoped<IExcelImportService, ExcelImportService>();
         services.AddBKeeperRules();
         services.AddScoped<DailyRulePipeline>();
+        services.AddScoped<EscalationJob>();
 
 #pragma warning disable CS0618 // simple string overload is obsolete in 1.20 in favor of an options-action; fine for now
         services.AddHangfire(cfg => cfg.UsePostgreSqlStorage(connectionString));

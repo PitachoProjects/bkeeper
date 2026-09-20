@@ -99,7 +99,7 @@ public class DailyRulePipeline(BKeeperDbContext db, CurrentBoxAccessor currentBo
                         RuleCodes = decision.RuleCodes.ToList(),
                         Severity = decision.Severity,
                         Status = AlertStatus.New,
-                        AssignedRole = decision.Severity == AlertSeverity.Red ? UserRole.Manager : UserRole.Coach,
+                        AssignedRole = UserRole.Coach,
                         DueAt = DateTimeOffset.UtcNow.Add(SlaFor(decision.Severity)),
                         Evidence = decision.Evidence.ToDictionary(kv => kv.Key, kv => kv.Value),
                         Fingerprint = $"{memberId}:{decision.Family}",

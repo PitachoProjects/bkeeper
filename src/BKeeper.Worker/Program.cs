@@ -19,4 +19,10 @@ recurringJobs.AddOrUpdate<DailyRulePipeline>(
     pipeline => pipeline.RunForAllBoxesAsync(DateOnly.FromDateTime(DateTime.UtcNow), CancellationToken.None),
     "30 5 * * *");
 
+// §6.4: escalation + claimed-idle release + auto-expire + auto-resolve-on-return, every 15 minutes.
+recurringJobs.AddOrUpdate<EscalationJob>(
+    "escalation-job",
+    job => job.RunForAllBoxesAsync(CancellationToken.None),
+    "*/15 * * * *");
+
 host.Run();
