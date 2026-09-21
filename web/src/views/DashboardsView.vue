@@ -1,10 +1,13 @@
 <script setup lang="ts">
-import { onMounted, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { api } from '@/lib/api'
+import { api, ApiError } from '@/lib/api'
 import { severityLabel } from '@/lib/labels'
+import { useAuthStore } from '@/stores/auth'
 
 const { t } = useI18n()
+const authStore = useAuthStore()
+const isManagerOrOwner = computed(() => authStore.role === 'Manager' || authStore.role === 'Owner')
 
 interface CohortCurve {
   cohortLabel: string
@@ -67,6 +70,13 @@ interface MyWeek {
   resolvedThisWeekCount: number
 }
 
+interface NarrativeResponse {
+  status: 'Generated' | 'NotConfigured' | 'Error'
+  narrative: string | null
+  message: string | null
+  evidence: unknown
+}
+
 const TABS = ['retention', 'alertOps', 'workouts', 'myWeek'] as const
 const tab = ref<(typeof TABS)[number]>('retention')
 const loading = ref(true)
@@ -76,15 +86,47 @@ const alertOps = ref<AlertOperations | null>(null)
 const workouts = ref<WorkoutMix | null>(null)
 const myWeek = ref<MyWeek | null>(null)
 
+const aiConfigured = ref<boolean | null>(null)
+const narrative = ref<NarrativeResponse | null>(null)
+const narrativeLoading = ref(false)
+const narrativeError = ref<string | null>(null)
+
 async function loadTab() {
   loading.value = true
   try {
-    if (tab.value === 'retention' && !retention.value) retention.value = await api.get('/dashboards/retention')
+    if (tab.value === 'retention' && !retention.value) {
+      retention.value = await api.get('/dashboards/retention')
+      checkAiConfigured()
+    }
     if (tab.value === 'alertOps' && !alertOps.value) alertOps.value = await api.get('/dashboards/alerts')
     if (tab.value === 'workouts' && !workouts.value) workouts.value = await api.get('/dashboards/workouts')
     if (tab.value === 'myWeek' && !myWeek.value) myWeek.value = await api.get('/dashboards/my-week')
   } finally {
     loading.value = false
+  }
+}
+
+// Cheap "is the feature turned on" check — never triggers a paid LLM call, so it's safe to run
+// automatically when the retention tab first opens (unlike getAiSummary, which is user-triggered only).
+async function checkAiConfigured() {
+  if (!isManagerOrOwner.value || aiConfigured.value !== null) return
+  try {
+    const res = await api.get<{ configured: boolean }>('/insights/status')
+    aiConfigured.value = res.configured
+  } catch {
+    aiConfigured.value = false
+  }
+}
+
+async function getAiSummary() {
+  narrativeLoading.value = true
+  narrativeError.value = null
+  try {
+    narrative.value = await api.post<NarrativeResponse>('/insights/narrative', { scope: 'retention-overview' })
+  } catch (e) {
+    narrativeError.value = e instanceof ApiError ? e.message : t('dashboards.retention.aiSummary.error')
+  } finally {
+    narrativeLoading.value = false
   }
 }
 
@@ -121,6 +163,35 @@ onMounted(loadTab)
         <div class="stat"><span class="stat-value">{{ retention.monthlyChurnRatePct }}%</span><span class="stat-label">{{ t('dashboards.retention.monthlyChurn') }}</span></div>
         <div class="stat"><span class="stat-value">{{ retention.lapsedCount }}</span><span class="stat-label">{{ t('dashboards.retention.lapsed') }}</span></div>
       </div>
+
+      <section v-if="isManagerOrOwner" class="card ai-summary">
+        <h2>{{ t('dashboards.retention.aiSummary.title') }}</h2>
+        <p class="hint">{{ t('dashboards.retention.aiSummary.hint') }}</p>
+
+        <button
+          class="ghost"
+          :disabled="narrativeLoading || aiConfigured === false"
+          :title="aiConfigured === false ? t('dashboards.retention.aiSummary.notConfiguredTooltip') : undefined"
+          @click="getAiSummary"
+        >
+          {{ narrativeLoading ? t('dashboards.retention.aiSummary.loading') : t('dashboards.retention.aiSummary.button') }}
+        </button>
+
+        <p v-if="narrativeError" class="bad-text ai-message">{{ narrativeError }}</p>
+
+        <template v-if="narrative">
+          <p v-if="narrative.status === 'NotConfigured'" class="hint ai-message">{{ narrative.message }}</p>
+          <p v-else-if="narrative.status === 'Error'" class="bad-text ai-message">{{ narrative.message }}</p>
+          <template v-else>
+            <span class="badge ai-generated-badge">{{ t('dashboards.retention.aiSummary.aiGeneratedLabel') }}</span>
+            <p class="ai-narrative">{{ narrative.narrative }}</p>
+            <details class="ai-evidence">
+              <summary>{{ t('dashboards.retention.aiSummary.evidenceToggle') }}</summary>
+              <pre>{{ JSON.stringify(narrative.evidence, null, 2) }}</pre>
+            </details>
+          </template>
+        </template>
+      </section>
 
       <section class="card">
         <div class="section-header">
@@ -385,5 +456,41 @@ onMounted(loadTab)
 }
 .empty {
   color: var(--color-text-faint);
+}
+.ai-summary .hint {
+  margin-bottom: 0.75rem;
+}
+.ai-message {
+  margin-top: 0.6rem;
+}
+.ai-generated-badge {
+  display: inline-block;
+  margin-top: 0.75rem;
+  background: var(--color-info-soft);
+  color: var(--color-info);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  font-size: 0.65rem;
+}
+.ai-narrative {
+  white-space: pre-wrap;
+  margin: 0.5rem 0 0;
+  line-height: 1.5;
+}
+.ai-evidence {
+  margin-top: 0.75rem;
+}
+.ai-evidence summary {
+  cursor: pointer;
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+}
+.ai-evidence pre {
+  margin-top: 0.5rem;
+  padding: 0.75rem;
+  background: var(--color-bg-soft);
+  border-radius: var(--radius-md);
+  overflow-x: auto;
+  font-size: 0.75rem;
 }
 </style>
