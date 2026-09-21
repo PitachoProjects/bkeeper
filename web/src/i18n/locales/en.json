@@ -99,7 +99,21 @@
     "family": "Family",
     "description": "Description",
     "enabled": "Enabled",
-    "enabledHint": "Turns this rule off for your box — it stops creating new alerts, existing ones are unaffected."
+    "enabledHint": "Turns this rule off for your box — it stops creating new alerts, existing ones are unaffected.",
+    "healthScore": {
+      "title": "Health score weights",
+      "hint": "How much each factor counts toward the composite Health Score. Must sum to 100% before saving.",
+      "total": "Total",
+      "save": "Save",
+      "saved": "Saved as version {version}.",
+      "invalidTotal": "Weights must sum to 100% (currently {total}%).",
+      "enabled": "On",
+      "weight": "Weight %",
+      "version": "Active version",
+      "minTenureDays": "Minimum tenure (days)",
+      "minSessions": "Minimum sessions",
+      "coldStartHint": "Members below both minimums get \"not enough history\" instead of a score."
+    }
   },
   "alerts": {
     "title": "Alert inbox",
@@ -220,6 +234,39 @@
       "weekOf": "week of",
       "model": "model",
       "empty": "No score yet — runs weekly (Sunday), or trigger it from the alert inbox."
+    },
+    "healthScore": {
+      "title": "Health score",
+      "hint": "A composite 0-100 score from attendance, consistency, booking behaviour, goal progress and engagement — deterministic and configurable, not a prediction.",
+      "trend": "Trend",
+      "asOf": "as of",
+      "insufficientTitle": "Not enough history yet",
+      "insufficientHint": "This member hasn't been around long enough (or hasn't trained enough sessions) for a reliable score.",
+      "tenureDays": "Tenure",
+      "tenureDaysUnit": "days",
+      "sessionCount": "Sessions logged",
+      "howCalculated": "How this score is calculated",
+      "factor": "Factor",
+      "weight": "Weight",
+      "score": "Score",
+      "contribution": "Contribution",
+      "notIncluded": "Not included",
+      "empty": "No score yet — runs daily, or trigger it from Settings.",
+      "factors": {
+        "Attendance": "Attendance",
+        "Consistency": "Consistency",
+        "BookingBehaviour": "Booking behaviour",
+        "Progress": "Progress",
+        "Engagement": "Engagement"
+      },
+      "reasons": {
+        "disabled": "disabled in config",
+        "no_goals": "no goals set",
+        "no_evaluations": "no evaluation responses",
+        "insufficient_history": "not enough history",
+        "no_visits": "no visits in window",
+        "insufficient_data": "insufficient data"
+      }
     },
     "notes": {
       "title": "Notes",

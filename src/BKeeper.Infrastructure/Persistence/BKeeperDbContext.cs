@@ -44,6 +44,8 @@ public class BKeeperDbContext(DbContextOptions<BKeeperDbContext> options, ICurre
     public DbSet<EvaluationFormLink> EvaluationFormLinks => Set<EvaluationFormLink>();
     public DbSet<RiskScore> RiskScores => Set<RiskScore>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
+    public DbSet<HealthScoreConfiguration> HealthScoreConfigurations => Set<HealthScoreConfiguration>();
+    public DbSet<HealthScore> HealthScores => Set<HealthScore>();
     public DbSet<MetricDefinition> MetricDefinitions => Set<MetricDefinition>();
     public DbSet<Coach> Coaches => Set<Coach>();
     public DbSet<Payment> Payments => Set<Payment>();
@@ -83,6 +85,11 @@ public class BKeeperDbContext(DbContextOptions<BKeeperDbContext> options, ICurre
         builder.Entity<EvaluationFormLink>().HasIndex(l => l.Token).IsUnique();
         builder.Entity<RiskScore>().HasIndex(r => new { r.BoxId, r.MemberId, r.SnapshotWeek, r.ModelType }).IsUnique();
         builder.Entity<RiskScore>().Property(r => r.TopReasons).HasJsonConversion();
+
+        builder.Entity<HealthScoreConfiguration>().HasIndex(c => new { c.BoxId, c.Version }).IsUnique();
+        builder.Entity<HealthScoreConfiguration>().HasIndex(c => new { c.BoxId, c.IsActive });
+        builder.Entity<HealthScore>().HasIndex(h => new { h.BoxId, h.MemberId, h.CalculationDate }).IsUnique();
+        builder.Entity<HealthScore>().Property(h => h.Factors).HasJsonConversion();
 
         builder.Entity<MemberWeek>().Property(w => w.VisitsByWindow).HasJsonConversion();
         builder.Entity<MemberWeek>().Property(w => w.VisitsByType).HasJsonConversion();
