@@ -39,7 +39,7 @@ services:
     container_name: bkeeper-api
     restart: unless-stopped
     environment:
-      ConnectionStrings__Postgres: "Host=postgres;Port=5432;Database=bkeeper;Username=bkeeper;Password=bkeeper"
+      ConnectionStrings__Postgres: "${DATABASE_CONNECTION_STRING:-Host=postgres;Port=5432;Database=bkeeper;Username=bkeeper;Password=bkeeper}"
       Jwt__SigningKey: "${JWT_SIGNING_KEY:-dev-signing-key-change-me-please-32chars-min}"
       Cors__AllowedOrigins__0: "${WEB_ORIGIN:-http://localhost:5173}"
       ASPNETCORE_ENVIRONMENT: "${ASPNETCORE_ENVIRONMENT:-Development}"
@@ -58,7 +58,7 @@ services:
     container_name: bkeeper-worker
     restart: unless-stopped
     environment:
-      ConnectionStrings__Postgres: "Host=postgres;Port=5432;Database=bkeeper;Username=bkeeper;Password=bkeeper"
+      ConnectionStrings__Postgres: "${DATABASE_CONNECTION_STRING:-Host=postgres;Port=5432;Database=bkeeper;Username=bkeeper;Password=bkeeper}"
       Jwt__SigningKey: "${JWT_SIGNING_KEY:-dev-signing-key-change-me-please-32chars-min}"
       MlService__BaseUrl: "http://ml:8090"
       MlService__ServiceToken: "${ML_SERVICE_TOKEN:-dev-ml-token-change-me}"

@@ -8,6 +8,9 @@ node_modules/
 dist/
 web/.env.local
 
+# Local secrets (real DB credentials, etc.) — never commit
+.env
+
 # IDE
 .vs/
 .idea/

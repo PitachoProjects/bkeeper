@@ -20,6 +20,13 @@ Retention platform for CrossFit boxes — see [docs/PLAN.md](docs/PLAN.md) for t
 docker compose up -d --build
 ```
 
+By default the API/Worker connect to the local `postgres` container. To point at a remote
+Postgres instance instead (e.g. Supabase), copy `.env.example` to `.env` and set
+`DATABASE_CONNECTION_STRING` — `docker compose` picks up `.env` automatically. See the comments
+in `.env.example` for the Supabase-specific gotcha (use the **Session pooler** connection string,
+not the direct connection host, which is IPv6-only and unreachable from most networks). `.env` is
+gitignored — never commit real credentials.
+
 - API: http://localhost:5080 (Swagger at `/swagger`, health at `/health`)
 - Web: http://localhost:5173
 - ML service: http://localhost:8090 (health at `/health`) — auto-trains a synthetic-data model on first boot
