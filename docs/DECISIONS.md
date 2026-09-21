@@ -2,42 +2,43 @@
 
 Extends §2 of [PLAN.md](PLAN.md). Newest first.
 
-## D26 — Metric definition registry + "Explain This" pattern
-Plan §5's canonical metric definitions existed only as prose plus scattered formulas in
-`AttendanceMetrics.cs`/`MetricsBuilder.cs`/`DashboardsController.cs`. Added a queryable registry so
-that stays true as the app grows, and a reusable frontend affordance to surface it in place:
-- `MetricDefinition` ([src/BKeeper.Domain/Entities/MetricDefinition.cs](../src/BKeeper.Domain/Entities/MetricDefinition.cs)) is **global reference
-  data, not `BoxScopedEntity`** — every box shares one catalog of formulas, unlike per-box data such
-  as `EvaluationForm`. Seeded via EF Core migration `HasData` (`AddMetricDefinitions`) from a single
-  source-of-truth list, `MetricDefinitionCatalog.All` ([src/BKeeper.Application/Metrics/MetricDefinitionCatalog.cs](../src/BKeeper.Application/Metrics/MetricDefinitionCatalog.cs)) —
-  19 entries covering every number `DashboardsController`'s retention/alert-ops/workouts endpoints
-  return, plus the member-level rule inputs (`AttendanceMetrics`/`MetricsBuilder`) R01-R04 consume.
-  Read-only for this pass, matching the task's own scope: no admin CRUD UI to edit definitions yet.
-- Each definition's formula is transcribed from the real code, not invented — where the plan's prose
-  definition (§5) and what's actually computed diverge (e.g. `active_members` doesn't cross-check
-  membership validity; `churned_members_this_month` excludes lapsed members; the box-level workout
-  heatmap approximates but isn't the per-member "usual window"/"type mix" plan §5 describes, since
-  `MemberProfile` isn't populated per D24), that gap is spelled out in the entry's `Limitations` field
-  rather than smoothed over. There is no separately computed "cancellation rate" distinct from
-  no-shows in the codebase today — `member_no_show_rate_8w` documents R04's actual combined
-  no-show/late-cancel formula and says so explicitly.
-- `GET /metric-definitions` (active list) and `GET /metric-definitions/{key}` (full explain-this
-  content: definition, how it's calculated, period, why it matters, limitations) —
-  `MetricDefinitionsController`, `[Authorize]` like the rest of the API, no new roles.
-- `ExplainThis.vue` — a small "ⓘ What does this mean?" trigger that expands inline and lazy-fetches
-  `/metric-definitions/{key}` (cached per key across instances on the page, since the same metric can
-  appear more than once). Wired into `DashboardsView.vue`'s retention tab (active/new/churned/net/
-  monthly-churn/lapsed, the cohort curve, the tenure-at-churn histogram) and alert-ops tab (SLA
-  compliance, avg time to claim, save rate, holdout/treated return rate) — the highest-traffic
-  dashboard numbers, per the task's own priority call. Every wired stat also gained an explicit period
-  caption ("this calendar month", "all-time", "next 14 days after outreach", …) sourced from new
-  `dashboards.periods.*` i18n keys, addressing the same "don't leave a rate's comparison window
-  implicit" goal the registry itself serves. Chrome strings (`explainThis.*`) are localized EN/PT-PT;
-  the metric content itself (name/definition/formula/…) is API-sourced and English-only, per the task.
-- **Not built** (explicitly out of scope for this pass): an admin UI to edit definitions, wiring
-  `ExplainThis` into the workouts/my-week tabs or the member-detail rule-input numbers, and the
-  health-score-engine/LLM-narrative work that reads a registry like this — those are separate,
-  parallel efforts.
+## D26 — Athlete Health Score engine (product spec, not in the original plan)
+A deterministic, configurable composite score (`HealthScore`/`HealthScoreConfiguration`,
+[src/BKeeper.Application/HealthScoring/](../src/BKeeper.Application/HealthScoring/)) distinct from the
+shadow-mode ML `RiskScore` (R13) and the survey-only `engagement_index` in `EvaluationScorer` — this
+combines Attendance, Consistency, Booking behaviour, Progress and Engagement into one 0-100 number,
+visible to Coach/Manager/Owner (not shadow-mode; it's explainable and rule-based, not a prediction).
+- **Weights are versioned, not edited in place**: `HealthScoreConfiguration` is box-scoped and
+  immutable per version (mirrors `EvaluationForm.Version`, since `RuleConfig` itself turned out to have
+  no version history to reuse — it's a single mutable row per rule code). A `PUT /health-score/config`
+  deactivates the current version and inserts a new one; every `HealthScore` row keeps the
+  `ConfigVersion` that was active when it was calculated, so re-weighting today never rewrites
+  yesterday's stored scores (tested in `HealthScoreJobTests`).
+- **Progress factor** proxies the spec's Benchmark/PR data with `Goal`/`GoalProgress` — the only
+  progress-tracking entity this codebase has (no Benchmark/PR entity exists, and the task explicitly
+  ruled out building one). A member with no active goals gets an explicit `no_goals` outcome and is
+  excluded from the weighted denominator (renormalized away), never scored as failing.
+- **Per-factor "no data" renormalizes, never fails to 0**: `HealthScoreComposer` drops any disabled or
+  no-data factor from both the numerator and the weight denominator, so the remaining factors' weights
+  scale back up to 100 — e.g. dropping Engagement (weight 10) rescales Attendance from 35 to 35/90×100.
+- **Cold start**: below configurable tenure-days/session-count minimums, the whole score is
+  `InsufficientData` (no numeric score at all) — but `TenureDays`/`SessionCount` are still recorded so
+  the UI can show "not enough history yet, but here's what we know" instead of a blank card.
+- **No MemberWeek dependency**: the plan's own "rebuild MemberWeek, then score" ordering doesn't apply
+  here because nothing in this codebase populates `MemberWeek` yet (see docs/OPEN_QUESTIONS.md — a
+  pre-existing Week 3 gap, not something this pass fixes, per the task's own scope limits). The
+  `HealthScoreJob` reads booking facts directly and reuses `MetricsBuilder`/`AttendanceMetrics`, the
+  same way `DailyRulePipeline` and `MlScoringJob` already do. It runs daily at 05:50, after
+  `daily-rule-pipeline` (05:30) and `goals-evaluations-job` (05:45).
+- **Engagement factor** uses `EvaluationScorer.EngagementIndex` averaged across evaluation responses in
+  the config's window. Blending in evaluation-form *participation rate* (sent vs. answered links) is a
+  reasonable extension the spec allows for ("and/or") but wasn't built here — see follow-ups below.
+- **Not built** (flagged for a human reviewer): participation-rate blending into Engagement; a
+  Manager-facing audit *history* view for config changes (the `AuditLog` rows exist — `GET /health-score/config`
+  only returns the current version, there's no `GET /health-score/config/history` endpoint yet);
+  sliders in the Settings UI (number inputs were used instead, consistent with the rest of Settings'
+  plain-input style); and box time-zone-aware "calculation date" (like the rest of this codebase, the
+  job uses UTC `DateTime.UtcNow` rather than the box's configured time zone).
 
 ## D25 — Weeks 10-11: connector contract (not an implementation), rate limiting, GDPR tooling, backup drill
 **Week 10 is intentionally left as a contract, not an implementation.** The plan's own instruction is

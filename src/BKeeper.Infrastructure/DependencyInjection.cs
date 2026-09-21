@@ -72,6 +72,7 @@ public static class DependencyInjection
 
         services.AddScoped<AuditLogger>();
         services.AddScoped<AnonymizationJob>();
+        services.AddScoped<HealthScoreJob>();
 
 #pragma warning disable CS0618 // simple string overload is obsolete in 1.20 in favor of an options-action; fine for now
         services.AddHangfire(cfg => cfg.UsePostgreSqlStorage(connectionString));
