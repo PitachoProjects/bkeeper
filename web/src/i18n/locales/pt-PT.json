@@ -1,46 +1,14 @@
 {
-  "nav": {
-    "groups": {
-      "dashboard": "Painel",
-      "athletes": "Atletas",
-      "classes": "Aulas",
-      "insights": "Análises",
-      "reports": "Relatórios",
-      "configuration": "Configuração"
-    },
-    "dashboard": {
-      "overview": "Visão geral",
-      "attendance": "Frequência",
-      "interventions": "Intervenções",
-      "myWeek": "A minha semana"
-    },
-    "athletes": {
-      "all": "Todos os atletas",
-      "atRisk": "Em risco",
-      "earlyWarning": "Alerta precoce",
-      "new": "Novos atletas",
-      "inactive": "Inativos",
-      "alertInbox": "Caixa de alertas"
-    },
-    "classes": {
-      "analytics": "Horário e frequência",
-      "coaches": "Treinadores"
-    },
-    "insights": {
-      "retention": "Tendências de retenção",
-      "alertOutcomes": "Resultados dos alertas"
-    },
-    "reports": {
-      "retention": "Relatório de retenção"
-    },
-    "configuration": {
-      "general": "Geral",
-      "import": "Importação de dados"
-    }
+  "theme": {
+    "light": "Claro",
+    "dark": "Escuro"
   },
-  "theme": { "light": "Claro", "dark": "Escuro" },
   "signOut": "Terminar sessão",
-  "severity": { "Info": "Regular", "Amber": "Alta", "Red": "Crítica" },
+  "severity": {
+    "Info": "Regular",
+    "Amber": "Alta",
+    "Red": "Crítica"
+  },
   "explainThis": {
     "trigger": "O que significa isto?",
     "loading": "A carregar…",
@@ -61,12 +29,29 @@
     "tenure": "Antiguidade",
     "empty": "Ainda sem membros — experimente a página de Importação.",
     "allStatuses": "Todos os estados",
-    "statuses": { "Active": "Ativo", "Frozen": "Congelado", "Cancelled": "Cancelado", "Lapsed": "Inativo" },
+    "statuses": {
+      "Active": "Ativo",
+      "Frozen": "Congelado",
+      "Cancelled": "Cancelado",
+      "Lapsed": "Inativo"
+    },
     "presets": {
-      "atRisk": { "title": "Em risco", "hint": "Membros com um alerta crítico (vermelho) em aberto." },
-      "earlyWarning": { "title": "Alerta precoce", "hint": "Membros com um alerta de alta prioridade (âmbar) em aberto." },
-      "new": { "title": "Novos atletas", "hint": "Inscritos nos últimos 30 dias." },
-      "inactive": { "title": "Inativos", "hint": "Membros cancelados ou inativos." }
+      "atRisk": {
+        "title": "Em risco",
+        "hint": "Membros com um alerta crítico (vermelho) em aberto."
+      },
+      "earlyWarning": {
+        "title": "Alerta precoce",
+        "hint": "Membros com um alerta de alta prioridade (âmbar) em aberto."
+      },
+      "new": {
+        "title": "Novos atletas",
+        "hint": "Inscritos nos últimos 30 dias."
+      },
+      "inactive": {
+        "title": "Inativos",
+        "hint": "Membros cancelados ou inativos."
+      }
     }
   },
   "coaches": {
@@ -82,7 +67,10 @@
     "save": "Guardar",
     "edit": "Editar",
     "empty": "Ainda sem treinadores.",
-    "statuses": { "Active": "Ativo", "Inactive": "Inativo" }
+    "statuses": {
+      "Active": "Ativo",
+      "Inactive": "Inativo"
+    }
   },
   "settings": {
     "title": "Definições",
@@ -144,7 +132,12 @@
   },
   "dashboards": {
     "title": "Painéis",
-    "tabs": { "retention": "Retenção", "alertOps": "Operação de alertas", "workouts": "Treinos", "myWeek": "A minha semana" },
+    "tabs": {
+      "retention": "Retenção",
+      "alertOps": "Operação de alertas",
+      "workouts": "Treinos",
+      "myWeek": "A minha semana"
+    },
     "periods": {
       "asOfToday": "a partir de hoje",
       "thisMonth": "este mês civil",
@@ -221,6 +214,12 @@
   },
   "memberDetail": {
     "joined": "inscrito em",
+    "groups": {
+      "healthAndRisk": "Saúde & risco",
+      "goals": "Objetivos",
+      "activity": "Atividade & notas",
+      "membershipAdmin": "Administração"
+    },
     "risk": {
       "title": "Risco de churn",
       "shadowMode": "modo sombra",
@@ -314,7 +313,12 @@
       "title": "Linha do tempo",
       "all": "Todos",
       "empty": "Ainda sem atividade.",
-      "filters": { "note": "Nota", "Attended": "Presença", "NoShow": "Falta", "LateCancel": "Cancelamento tardio" }
+      "filters": {
+        "note": "Nota",
+        "Attended": "Presença",
+        "NoShow": "Falta",
+        "LateCancel": "Cancelamento tardio"
+      }
     },
     "workoutMix": {
       "title": "Mistura de treinos",
@@ -336,8 +340,17 @@
       "method": "Método",
       "notes": "Notas",
       "empty": "Ainda sem pagamentos registados.",
-      "statuses": { "Completed": "Concluído", "Refunded": "Reembolsado", "Failed": "Falhado" },
-      "methods": { "Card": "Cartão", "Cash": "Dinheiro", "Transfer": "Transferência", "Other": "Outro" }
+      "statuses": {
+        "Completed": "Concluído",
+        "Refunded": "Reembolsado",
+        "Failed": "Falhado"
+      },
+      "methods": {
+        "Card": "Cartão",
+        "Cash": "Dinheiro",
+        "Transfer": "Transferência",
+        "Other": "Outro"
+      }
     }
   },
   "import": {

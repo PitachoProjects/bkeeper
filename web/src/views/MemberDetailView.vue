@@ -280,6 +280,8 @@ onMounted(load)
     <h1>{{ member.name }}</h1>
     <p class="meta">{{ member.email }} · {{ member.phone }} · {{ t('memberDetail.joined') }} {{ member.joinDate }}</p>
 
+    <h2 class="group-title">{{ t('memberDetail.groups.healthAndRisk') }}</h2>
+
     <section v-if="canSeeRisk" class="card">
       <h2>{{ t('memberDetail.risk.title') }} <span class="shadow-tag">{{ t('memberDetail.risk.shadowMode') }}</span></h2>
       <p class="hint">{{ t('memberDetail.risk.hint') }}</p>
@@ -367,23 +369,7 @@ onMounted(load)
       <p v-else class="empty">{{ t('memberDetail.workoutMix.empty') }}</p>
     </section>
 
-    <section class="card">
-      <h2>{{ t('memberDetail.notes.title') }}</h2>
-      <p class="hint">{{ t('memberDetail.notes.hint') }}</p>
-      <form class="add-note" @submit.prevent="addNote">
-        <input v-model="newNote" :placeholder="t('memberDetail.notes.placeholder')" />
-        <button type="submit" :disabled="savingNote">{{ t('memberDetail.notes.add') }}</button>
-      </form>
-      <ul class="notes">
-        <li v-for="n in notes.filter((n) => n.isActive)" :key="n.id">
-          <span class="source" :class="n.source.toLowerCase()">{{ n.source }}</span>
-          <span class="text">{{ n.text }}</span>
-          <span class="date">{{ new Date(n.createdAt).toLocaleDateString() }}</span>
-          <button class="remove" @click="removeNote(n.id)">✕</button>
-        </li>
-        <li v-if="notes.filter((n) => n.isActive).length === 0" class="empty">{{ t('memberDetail.notes.empty') }}</li>
-      </ul>
-    </section>
+    <h2 class="group-title">{{ t('memberDetail.groups.goals') }}</h2>
 
     <section class="card">
       <div class="section-header">
@@ -425,6 +411,62 @@ onMounted(load)
         <li v-if="goals.length === 0" class="empty">{{ t('memberDetail.goals.empty') }}</li>
       </ul>
     </section>
+
+    <h2 class="group-title">{{ t('memberDetail.groups.activity') }}</h2>
+
+    <section class="card">
+      <h2>{{ t('memberDetail.notes.title') }}</h2>
+      <p class="hint">{{ t('memberDetail.notes.hint') }}</p>
+      <form class="add-note" @submit.prevent="addNote">
+        <input v-model="newNote" :placeholder="t('memberDetail.notes.placeholder')" />
+        <button type="submit" :disabled="savingNote">{{ t('memberDetail.notes.add') }}</button>
+      </form>
+      <ul class="notes">
+        <li v-for="n in notes.filter((n) => n.isActive)" :key="n.id">
+          <span class="source" :class="n.source.toLowerCase()">{{ n.source }}</span>
+          <span class="text">{{ n.text }}</span>
+          <span class="date">{{ new Date(n.createdAt).toLocaleDateString() }}</span>
+          <button class="remove" @click="removeNote(n.id)">✕</button>
+        </li>
+        <li v-if="notes.filter((n) => n.isActive).length === 0" class="empty">{{ t('memberDetail.notes.empty') }}</li>
+      </ul>
+    </section>
+
+    <section class="card">
+      <h2>{{ t('memberDetail.outreach.title') }}</h2>
+      <ul class="outreach">
+        <li v-for="o in outreach" :key="o.id">
+          <span class="source" :class="o.sentBy.toLowerCase()">{{ o.sentBy }}</span>
+          <span class="channel">{{ o.channel }}</span>
+          <span class="text">{{ o.isHoldout ? t('memberDetail.outreach.holdout') : o.body }}</span>
+          <span class="status">{{ o.status }}</span>
+          <span class="date">{{ new Date(o.createdAt).toLocaleString() }}</span>
+        </li>
+        <li v-if="outreach.length === 0" class="empty">{{ t('memberDetail.outreach.empty') }}</li>
+      </ul>
+    </section>
+
+    <section class="card">
+      <div class="section-header">
+        <h2>{{ t('memberDetail.timeline.title') }}</h2>
+        <div class="timeline-filters">
+          <button class="ghost" :class="{ active: timelineFilter === '' }" @click="timelineFilter = ''">{{ t('memberDetail.timeline.all') }}</button>
+          <button v-for="opt in TIMELINE_FILTERS" :key="opt" class="ghost" :class="{ active: timelineFilter === opt }" @click="timelineFilter = opt">
+            {{ t(`memberDetail.timeline.filters.${opt}`) }}
+          </button>
+        </div>
+      </div>
+      <ul class="timeline">
+        <li v-for="(item, i) in timelineFiltered" :key="i">
+          <span class="type" :class="item.type.toLowerCase()">{{ item.type }}</span>
+          <span>{{ item.summary }}</span>
+          <span class="date">{{ new Date(item.at).toLocaleString() }}</span>
+        </li>
+        <li v-if="timelineFiltered.length === 0" class="empty">{{ t('memberDetail.timeline.empty') }}</li>
+      </ul>
+    </section>
+
+    <h2 class="group-title">{{ t('memberDetail.groups.membershipAdmin') }}</h2>
 
     <section class="card">
       <h2>{{ t('memberDetail.forms.title') }}</h2>
@@ -485,40 +527,6 @@ onMounted(load)
         <li v-if="payments.length === 0" class="empty">{{ t('memberDetail.payments.empty') }}</li>
       </ul>
     </section>
-
-    <section class="card">
-      <h2>{{ t('memberDetail.outreach.title') }}</h2>
-      <ul class="outreach">
-        <li v-for="o in outreach" :key="o.id">
-          <span class="source" :class="o.sentBy.toLowerCase()">{{ o.sentBy }}</span>
-          <span class="channel">{{ o.channel }}</span>
-          <span class="text">{{ o.isHoldout ? t('memberDetail.outreach.holdout') : o.body }}</span>
-          <span class="status">{{ o.status }}</span>
-          <span class="date">{{ new Date(o.createdAt).toLocaleString() }}</span>
-        </li>
-        <li v-if="outreach.length === 0" class="empty">{{ t('memberDetail.outreach.empty') }}</li>
-      </ul>
-    </section>
-
-    <section class="card">
-      <div class="section-header">
-        <h2>{{ t('memberDetail.timeline.title') }}</h2>
-        <div class="timeline-filters">
-          <button class="ghost" :class="{ active: timelineFilter === '' }" @click="timelineFilter = ''">{{ t('memberDetail.timeline.all') }}</button>
-          <button v-for="opt in TIMELINE_FILTERS" :key="opt" class="ghost" :class="{ active: timelineFilter === opt }" @click="timelineFilter = opt">
-            {{ t(`memberDetail.timeline.filters.${opt}`) }}
-          </button>
-        </div>
-      </div>
-      <ul class="timeline">
-        <li v-for="(item, i) in timelineFiltered" :key="i">
-          <span class="type" :class="item.type.toLowerCase()">{{ item.type }}</span>
-          <span>{{ item.summary }}</span>
-          <span class="date">{{ new Date(item.at).toLocaleString() }}</span>
-        </li>
-        <li v-if="timelineFiltered.length === 0" class="empty">{{ t('memberDetail.timeline.empty') }}</li>
-      </ul>
-    </section>
   </div>
 </template>
 
@@ -536,6 +544,17 @@ onMounted(load)
   font-size: 0.85rem;
   color: var(--color-text-muted);
   margin-top: -0.25rem;
+}
+.group-title {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-faint);
+  margin: 2rem 0 0;
+}
+.group-title:first-child {
+  margin-top: 0;
 }
 .add-note {
   display: flex;

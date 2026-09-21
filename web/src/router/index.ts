@@ -1,6 +1,10 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 
+// Six real pages, six nav entries, one route each — see App.vue for the nav list that mirrors
+// this 1:1. Old URLs from a previous nav layout (fake "groups" that pointed multiple sidebar
+// entries at the same page, and a couple of renamed sections) redirect below so no bookmark or
+// external link breaks, but none of them are linked from the UI anymore.
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
@@ -14,28 +18,31 @@ const router = createRouter({
     { path: '/f/:token', name: 'public-form', component: () => import('@/views/PublicFormView.vue'), meta: { public: true } },
     { path: '/', redirect: '/dashboard/retention' },
 
-    // Dashboard — DashboardsView.vue is one component; :tab drives which of its four
-    // sections is shown (see that file's ROUTE_TO_TAB map), so Classes/Insights/Reports
-    // below link into the same routes instead of forking the page.
+    // Dashboard — one page, four real tabs (Retention / Workouts / Alert ops / My week) driven
+    // by the :tab param; see DashboardsView.vue's ROUTE_TO_TAB map. Every tab is reachable from
+    // exactly one place: the tab bar on this page, not from the sidebar.
     { path: '/dashboard', redirect: '/dashboard/retention' },
     { path: '/dashboard/:tab', name: 'dashboard', component: () => import('@/views/DashboardsView.vue') },
-    { path: '/dashboards', redirect: '/dashboard/retention' },
 
-    // Athletes — MembersListView.vue applies a filter preset from the route (see its PRESET_* maps).
-    { path: '/athletes', redirect: '/athletes/all' },
-    { path: '/athletes/:preset', name: 'athletes', component: () => import('@/views/MembersListView.vue') },
-    { path: '/members', redirect: '/athletes/all' },
+    // Members — one page; "at risk" / "new" / etc. are quick filters via ?filter=, not separate
+    // routes, so they can't accidentally spawn separate nav entries again later.
+    { path: '/members', name: 'members', component: () => import('@/views/MembersListView.vue') },
     { path: '/members/:id', name: 'member-detail', component: () => import('@/views/MemberDetailView.vue') },
 
     { path: '/alerts', name: 'alerts', component: () => import('@/views/AlertsInboxView.vue') },
-    { path: '/import', name: 'import', component: () => import('@/views/ImportView.vue') },
     { path: '/coaches', name: 'coaches', component: () => import('@/views/CoachesListView.vue') },
+    { path: '/import', name: 'import', component: () => import('@/views/ImportView.vue') },
+    { path: '/settings', name: 'settings', component: () => import('@/views/SettingsView.vue') },
 
-    // Configuration — renamed/relocated Settings. Health Score config, the Metric registry
-    // editor, and Coach/Payment settings from other branches add sibling routes here.
-    { path: '/configuration', redirect: '/configuration/general' },
-    { path: '/configuration/general', name: 'configuration-general', component: () => import('@/views/SettingsView.vue') },
-    { path: '/settings', redirect: '/configuration/general' },
+    // --- Redirects from the previous nav layout (kept for old links only, not linked in the UI) ---
+    { path: '/dashboards', redirect: '/dashboard/retention' },
+    { path: '/athletes', redirect: '/members' },
+    {
+      path: '/athletes/:preset',
+      redirect: (to) => (to.params.preset === 'all' ? '/members' : `/members?filter=${to.params.preset}`),
+    },
+    { path: '/configuration', redirect: '/settings' },
+    { path: '/configuration/general', redirect: '/settings' },
   ],
 })
 

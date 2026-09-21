@@ -1,46 +1,14 @@
 {
-  "nav": {
-    "groups": {
-      "dashboard": "Dashboard",
-      "athletes": "Athletes",
-      "classes": "Classes",
-      "insights": "Insights",
-      "reports": "Reports",
-      "configuration": "Configuration"
-    },
-    "dashboard": {
-      "overview": "Overview",
-      "attendance": "Attendance",
-      "interventions": "Interventions",
-      "myWeek": "My week"
-    },
-    "athletes": {
-      "all": "All athletes",
-      "atRisk": "At risk",
-      "earlyWarning": "Early warning",
-      "new": "New athletes",
-      "inactive": "Inactive",
-      "alertInbox": "Alert inbox"
-    },
-    "classes": {
-      "analytics": "Schedule & attendance",
-      "coaches": "Coaches"
-    },
-    "insights": {
-      "retention": "Retention trends",
-      "alertOutcomes": "Alert outcomes"
-    },
-    "reports": {
-      "retention": "Retention report"
-    },
-    "configuration": {
-      "general": "General",
-      "import": "Data import"
-    }
+  "theme": {
+    "light": "Light",
+    "dark": "Dark"
   },
-  "theme": { "light": "Light", "dark": "Dark" },
   "signOut": "Sign out",
-  "severity": { "Info": "Regular", "Amber": "High", "Red": "Critical" },
+  "severity": {
+    "Info": "Regular",
+    "Amber": "High",
+    "Red": "Critical"
+  },
   "explainThis": {
     "trigger": "What does this mean?",
     "loading": "Loading…",
@@ -61,12 +29,29 @@
     "tenure": "Tenure",
     "empty": "No members yet — try the Import page.",
     "allStatuses": "All statuses",
-    "statuses": { "Active": "Active", "Frozen": "Frozen", "Cancelled": "Cancelled", "Lapsed": "Lapsed" },
+    "statuses": {
+      "Active": "Active",
+      "Frozen": "Frozen",
+      "Cancelled": "Cancelled",
+      "Lapsed": "Lapsed"
+    },
     "presets": {
-      "atRisk": { "title": "At risk", "hint": "Members with an open critical (red) alert." },
-      "earlyWarning": { "title": "Early warning", "hint": "Members with an open high-priority (amber) alert." },
-      "new": { "title": "New athletes", "hint": "Joined in the last 30 days." },
-      "inactive": { "title": "Inactive", "hint": "Cancelled or lapsed members." }
+      "atRisk": {
+        "title": "At risk",
+        "hint": "Members with an open critical (red) alert."
+      },
+      "earlyWarning": {
+        "title": "Early warning",
+        "hint": "Members with an open high-priority (amber) alert."
+      },
+      "new": {
+        "title": "New athletes",
+        "hint": "Joined in the last 30 days."
+      },
+      "inactive": {
+        "title": "Inactive",
+        "hint": "Cancelled or lapsed members."
+      }
     }
   },
   "coaches": {
@@ -82,7 +67,10 @@
     "save": "Save",
     "edit": "Edit",
     "empty": "No coaches yet.",
-    "statuses": { "Active": "Active", "Inactive": "Inactive" }
+    "statuses": {
+      "Active": "Active",
+      "Inactive": "Inactive"
+    }
   },
   "settings": {
     "title": "Settings",
@@ -144,7 +132,12 @@
   },
   "dashboards": {
     "title": "Dashboards",
-    "tabs": { "retention": "Retention", "alertOps": "Alert ops", "workouts": "Workouts", "myWeek": "My week" },
+    "tabs": {
+      "retention": "Retention",
+      "alertOps": "Alert ops",
+      "workouts": "Workouts",
+      "myWeek": "My week"
+    },
     "periods": {
       "asOfToday": "as of today",
       "thisMonth": "this calendar month",
@@ -221,6 +214,12 @@
   },
   "memberDetail": {
     "joined": "joined",
+    "groups": {
+      "healthAndRisk": "Health & risk",
+      "goals": "Goals",
+      "activity": "Activity & notes",
+      "membershipAdmin": "Membership admin"
+    },
     "risk": {
       "title": "Churn risk",
       "shadowMode": "shadow mode",
@@ -314,7 +313,12 @@
       "title": "Timeline",
       "all": "All",
       "empty": "No activity yet.",
-      "filters": { "note": "Note", "Attended": "Attended", "NoShow": "No-show", "LateCancel": "Late cancel" }
+      "filters": {
+        "note": "Note",
+        "Attended": "Attended",
+        "NoShow": "No-show",
+        "LateCancel": "Late cancel"
+      }
     },
     "workoutMix": {
       "title": "Workout mix",
@@ -336,8 +340,17 @@
       "method": "Method",
       "notes": "Notes",
       "empty": "No payments recorded yet.",
-      "statuses": { "Completed": "Completed", "Refunded": "Refunded", "Failed": "Failed" },
-      "methods": { "Card": "Card", "Cash": "Cash", "Transfer": "Transfer", "Other": "Other" }
+      "statuses": {
+        "Completed": "Completed",
+        "Refunded": "Refunded",
+        "Failed": "Failed"
+      },
+      "methods": {
+        "Card": "Card",
+        "Cash": "Cash",
+        "Transfer": "Transfer",
+        "Other": "Other"
+      }
     }
   },
   "import": {

@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { api } from '@/lib/api'
 
 const { t } = useI18n()
 const route = useRoute()
+const router = useRouter()
 
 interface MemberListItem {
   id: string
@@ -21,21 +22,28 @@ interface AlertListItem {
 
 const STATUSES = ['Active', 'Frozen', 'Cancelled', 'Lapsed']
 
-// Athletes sub-nav presets (App.vue) — filter views over this same list/endpoint rather
-// than separate pages. "At risk"/"early warning" reuse the (already unrestricted) alerts
-// endpoint client-side; "new"/"inactive" reuse fields the members endpoint already returns.
-const PRESETS = ['all', 'at-risk', 'early-warning', 'new', 'inactive'] as const
-type Preset = (typeof PRESETS)[number]
-const PRESET_I18N_KEY: Record<Preset, string> = { all: 'all', 'at-risk': 'atRisk', 'early-warning': 'earlyWarning', new: 'new', inactive: 'inactive' }
-const NEW_ATHLETE_WINDOW_DAYS = 30
+// Quick filters over this one page/endpoint, not separate pages — driven by ?filter= so they're
+// still deep-linkable and bookmarkable without needing their own nav entry or route. "At risk"/
+// "early warning" reuse the (already unrestricted) alerts endpoint client-side; "new"/"inactive"
+// reuse fields the members endpoint already returns.
+const FILTERS = ['all', 'at-risk', 'early-warning', 'new', 'inactive'] as const
+type FilterId = (typeof FILTERS)[number]
+const FILTER_I18N_KEY: Record<FilterId, string> = { all: 'all', 'at-risk': 'atRisk', 'early-warning': 'earlyWarning', new: 'new', inactive: 'inactive' }
+const NEW_MEMBER_WINDOW_DAYS = 30
 
-const preset = computed<Preset>(() => {
-  const p = route.params.preset as string
-  return (PRESETS as readonly string[]).includes(p) ? (p as Preset) : 'all'
+const filter = computed<FilterId>(() => {
+  const f = route.query.filter as string
+  return (FILTERS as readonly string[]).includes(f) ? (f as FilterId) : 'all'
 })
-const showsStatusFilter = computed(() => preset.value === 'all')
-const title = computed(() => (preset.value === 'all' ? t('members.title') : t(`members.presets.${PRESET_I18N_KEY[preset.value]}.title`)))
-const presetHint = computed(() => (preset.value === 'all' ? '' : t(`members.presets.${PRESET_I18N_KEY[preset.value]}.hint`)))
+const showsStatusFilter = computed(() => filter.value === 'all')
+const filterHint = computed(() => (filter.value === 'all' ? '' : t(`members.presets.${FILTER_I18N_KEY[filter.value]}.hint`)))
+
+function filterLabel(f: FilterId) {
+  return f === 'all' ? t('members.allStatuses') : t(`members.presets.${FILTER_I18N_KEY[f]}.title`)
+}
+function selectFilter(f: FilterId) {
+  router.push(f === 'all' ? '/members' : { path: '/members', query: { filter: f } })
+}
 
 const members = ref<MemberListItem[]>([])
 const search = ref('')
@@ -56,9 +64,9 @@ async function loadAlertFiltered(severity: 'Red' | 'Amber') {
 async function load() {
   loading.value = true
   try {
-    if (preset.value === 'at-risk' || preset.value === 'early-warning') {
-      await loadAlertFiltered(preset.value === 'at-risk' ? 'Red' : 'Amber')
-    } else if (preset.value === 'inactive') {
+    if (filter.value === 'at-risk' || filter.value === 'early-warning') {
+      await loadAlertFiltered(filter.value === 'at-risk' ? 'Red' : 'Amber')
+    } else if (filter.value === 'inactive') {
       // Client-side union: the members endpoint filters by a single status, and
       // "inactive" covers both the stored Lapsed and Cancelled statuses.
       const searchQuery = search.value ? `&search=${encodeURIComponent(search.value)}` : ''
@@ -74,8 +82,8 @@ async function load() {
       const query = params.toString() ? `?${params.toString()}` : ''
       let list = await api.get<MemberListItem[]>(`/members${query}`)
 
-      if (preset.value === 'new') {
-        const cutoff = Date.now() - NEW_ATHLETE_WINDOW_DAYS * 24 * 60 * 60 * 1000
+      if (filter.value === 'new') {
+        const cutoff = Date.now() - NEW_MEMBER_WINDOW_DAYS * 24 * 60 * 60 * 1000
         list = list.filter((m) => new Date(m.joinDate).getTime() >= cutoff)
       }
       members.value = list
@@ -85,7 +93,7 @@ async function load() {
   }
 }
 
-watch(preset, load)
+watch(filter, load)
 
 function tenure(joinDate: string) {
   const months = Math.floor((Date.now() - new Date(joinDate).getTime()) / (1000 * 60 * 60 * 24 * 30.44))
@@ -100,7 +108,7 @@ onMounted(load)
 <template>
   <div>
     <div class="header">
-      <h1>{{ title }}</h1>
+      <h1>{{ t('members.title') }}</h1>
       <div class="filters">
         <select v-if="showsStatusFilter" v-model="statusFilter" @change="load">
           <option value="">{{ t('members.allStatuses') }}</option>
@@ -109,7 +117,14 @@ onMounted(load)
         <input v-model="search" :placeholder="t('members.searchPlaceholder')" @keyup.enter="load" />
       </div>
     </div>
-    <p v-if="presetHint" class="hint">{{ presetHint }}</p>
+
+    <div class="chips">
+      <button v-for="f in FILTERS" :key="f" class="chip" :class="{ active: filter === f }" @click="selectFilter(f)">
+        {{ filterLabel(f) }}
+      </button>
+    </div>
+    <p v-if="filterHint" class="hint">{{ filterHint }}</p>
+
     <p v-if="loading">Loading…</p>
     <table v-else>
       <thead>
@@ -141,7 +156,7 @@ onMounted(load)
 .hint {
   font-size: 0.85rem;
   color: var(--color-text-muted);
-  margin: -0.75rem 0 1.25rem;
+  margin: -0.5rem 0 1.25rem;
 }
 .header {
   display: flex;
@@ -155,6 +170,33 @@ onMounted(load)
 }
 input {
   width: 240px;
+}
+.chips {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+  flex-wrap: wrap;
+}
+.chip {
+  padding: 0.35rem 0.8rem;
+  border-radius: 999px;
+  border: 1px solid var(--color-border-strong);
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: 0.82rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+.chip:hover {
+  filter: none;
+  background: var(--color-bg-soft);
+  color: var(--color-text);
+}
+.chip.active {
+  background: var(--color-accent-soft);
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+  font-weight: 600;
 }
 tbody tr {
   cursor: pointer;
