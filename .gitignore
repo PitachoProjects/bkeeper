@@ -19,3 +19,6 @@ Thumbs.db
 
 # DB dumps from scripts/backup.sh — never commit real data
 backups/
+
+# Parallel agent worktrees (each is its own git checkout, not repo content)
+.claude/worktrees/
