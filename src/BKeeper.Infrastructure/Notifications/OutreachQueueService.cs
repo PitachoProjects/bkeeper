@@ -13,11 +13,26 @@ namespace BKeeper.Infrastructure.Notifications;
 /// exists because the daily rule pipeline runs at 05:30, which is itself inside quiet hours, so
 /// "decide" and "actually send" can't be the same step.
 /// </summary>
+/// <summary>Why <see cref="OutreachQueueService.QueueAsync"/> declined to queue a message — lets callers
+/// show the real cause instead of a generic "no consent" guess (all four were previously collapsed into one).</summary>
+public enum OutreachQueueFailure
+{
+    NoConsentOnAnyChannel,
+    RequiresHuman,
+    DroppedFrequencyCap,
+    UnknownTemplate,
+}
+
+public readonly record struct OutreachQueueResult(Outreach? Outreach, OutreachQueueFailure? Failure)
+{
+    public static implicit operator Outreach?(OutreachQueueResult result) => result.Outreach;
+}
+
 public class OutreachQueueService(BKeeperDbContext db, ILogger<OutreachQueueService> logger)
 {
     /// <param name="templateKey">A key from <see cref="TemplateCatalog"/>, or null when <paramref name="rawBody"/> is used instead.</param>
     /// <param name="rawBody">Coach-authored free text — takes precedence over <paramref name="templateKey"/> when set (plan §10: "free text or template-with-edit").</param>
-    public async Task<Outreach?> QueueAsync(
+    public async Task<OutreachQueueResult> QueueAsync(
         Guid boxId, Guid memberId, Guid? alertId, OutreachSentBy sender, Guid? sentByUserId,
         AlertSeverity severity, string? templateKey, string language, IReadOnlyDictionary<string, string> variables,
         string? rawBody = null, CancellationToken ct = default)
@@ -36,7 +51,8 @@ public class OutreachQueueService(BKeeperDbContext db, ILogger<OutreachQueueServ
             if (action is NotificationAction.RequiresHuman or NotificationAction.DroppedFrequencyCap)
             {
                 logger.LogInformation("Outreach suppressed for member {MemberId}: {Action}", memberId, action);
-                return null;
+                return new OutreachQueueResult(null, action == NotificationAction.RequiresHuman
+                    ? OutreachQueueFailure.RequiresHuman : OutreachQueueFailure.DroppedFrequencyCap);
             }
             if (action == NotificationAction.NoConsent) continue;
 
@@ -48,7 +64,7 @@ public class OutreachQueueService(BKeeperDbContext db, ILogger<OutreachQueueServ
             else if (templateKey is null || !TemplateCatalog.TryRender(templateKey, language, variables, out body))
             {
                 logger.LogWarning("Unknown template key {TemplateKey}", templateKey);
-                return null;
+                return new OutreachQueueResult(null, OutreachQueueFailure.UnknownTemplate);
             }
 
             var isHoldoutLog = action == NotificationAction.LoggedHoldout;
@@ -67,10 +83,10 @@ public class OutreachQueueService(BKeeperDbContext db, ILogger<OutreachQueueServ
             };
             db.Outreaches.Add(outreach);
             await db.SaveChangesAsync(ct);
-            return outreach;
+            return new OutreachQueueResult(outreach, null);
         }
 
         logger.LogInformation("Outreach skipped for member {MemberId}: no channel has consent", memberId);
-        return null;
+        return new OutreachQueueResult(null, OutreachQueueFailure.NoConsentOnAnyChannel);
     }
 }

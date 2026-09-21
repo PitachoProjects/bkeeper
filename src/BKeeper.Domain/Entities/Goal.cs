@@ -6,6 +6,7 @@ namespace BKeeper.Domain.Entities;
 public class Goal : BoxScopedEntity
 {
     public Guid MemberId { get; set; }
+    public string? ExternalId { get; set; }
     public GoalCategory Category { get; set; }
     public string Description { get; set; } = string.Empty;
     public string Metric { get; set; } = string.Empty;

@@ -1,0 +1,224 @@
+{
+  "nav": {
+    "members": "Members",
+    "alerts": "Alert inbox",
+    "dashboards": "Dashboards",
+    "import": "Import",
+    "settings": "Settings"
+  },
+  "theme": { "light": "Light", "dark": "Dark" },
+  "signOut": "Sign out",
+  "severity": { "Info": "Regular", "Amber": "High", "Red": "Critical" },
+  "members": {
+    "title": "Members",
+    "searchPlaceholder": "Search by name…",
+    "name": "Name",
+    "email": "Email",
+    "status": "Status",
+    "joined": "Joined",
+    "tenure": "Tenure",
+    "empty": "No members yet — try the Import page.",
+    "allStatuses": "All statuses",
+    "statuses": { "Active": "Active", "Frozen": "Frozen", "Cancelled": "Cancelled", "Lapsed": "Lapsed" }
+  },
+  "settings": {
+    "title": "Settings",
+    "language": "Language",
+    "languageHint": "Applies to the app's own interface — not the language messages are sent to members in.",
+    "rules": "Rules",
+    "rulesHint": "The alert rules running for your box: what they check, and whether they're on.",
+    "code": "Code",
+    "family": "Family",
+    "description": "Description",
+    "enabled": "Enabled",
+    "enabledHint": "Turns this rule off for your box — it stops creating new alerts, existing ones are unaffected."
+  },
+  "alerts": {
+    "title": "Alert inbox",
+    "allSeverities": "All severities",
+    "allRoles": "All roles",
+    "runEscalation": "Run escalation sweep",
+    "runEscalationHint": "Runs the SLA escalation sweep now (also runs every 15 min automatically).",
+    "severity": "Severity",
+    "member": "Member",
+    "family": "Family",
+    "rules": "Rules",
+    "status": "Status",
+    "assigned": "Assigned",
+    "due": "Due",
+    "claim": "Claim",
+    "claimHint": "Assigns this alert to you so it drops off other coaches' queue. Anyone can claim any alert.",
+    "sendMessage": "Send message",
+    "sendMessageHint": "Send a template or custom message to this member right now, outside the automated rules.",
+    "resolve": "Resolve",
+    "resolveHint": "Closes the alert with an outcome. Just a record — it doesn't message the member or change anything else.",
+    "empty": "Nothing here — the daily rule run (or \"Run escalation sweep\") creates/updates alerts.",
+    "resolveTitle": "Resolve alert",
+    "outcome": "Outcome",
+    "note": "Note (optional)",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "sendTitle": "Send message",
+    "template": "Template",
+    "customText": "Custom text",
+    "messageLabel": "Message",
+    "messagePlaceholder": "Write your message…",
+    "send": "Send"
+  },
+  "dashboards": {
+    "title": "Dashboards",
+    "tabs": { "retention": "Retention", "alertOps": "Alert ops", "workouts": "Workouts", "myWeek": "My week" },
+    "retention": {
+      "active": "Active",
+      "newThisMonth": "New this month",
+      "churnedThisMonth": "Churned this month",
+      "netChange": "Net change",
+      "monthlyChurn": "Monthly churn",
+      "lapsed": "Lapsed (≥45d, still active)",
+      "cohortTitle": "Cohort retention",
+      "exportCsv": "Export CSV",
+      "cohortHint": "% of each join-month cohort still active, by months since joining.",
+      "cohort": "Cohort",
+      "size": "Size",
+      "tenureTitle": "Tenure at churn",
+      "tenureHint": "How long members stuck around before cancelling."
+    },
+    "alertOps": {
+      "slaCompliance": "SLA compliance",
+      "avgHoursToClaim": "Avg hours to claim",
+      "saveRate": "Save rate",
+      "treatedReturnRate": "Treated return rate",
+      "holdoutReturnRate": "Holdout return rate",
+      "volumeTitle": "Volume",
+      "bySeverity": "By severity",
+      "byFamily": "By family",
+      "outcomesTitle": "Outcomes mix",
+      "empty": "No resolved alerts yet."
+    },
+    "workouts": {
+      "heatmapTitle": "Day × window × type (last 12 weeks)",
+      "windowsHint": "Windows: Early before 08:00 · Morning 08:00–11:00 · Lunch 11:00–14:00 · Afternoon 14:00–17:00 · Evening after 17:00",
+      "day": "Day",
+      "window": "Window",
+      "type": "Type",
+      "visits": "Visits",
+      "empty": "No attended visits in the last 12 weeks.",
+      "fillTitle": "Class fill by slot",
+      "classType": "Class type",
+      "avgFill": "Avg fill",
+      "fillEmpty": "No capacity data in the last 12 weeks."
+    },
+    "myWeek": {
+      "openCoach": "Open (Coach)",
+      "dueThisWeek": "Due this week",
+      "resolvedThisWeek": "Resolved this week",
+      "openAlertsTitle": "Open alerts",
+      "due": "Due",
+      "empty": "Nothing open — nice week."
+    }
+  },
+  "memberDetail": {
+    "joined": "joined",
+    "risk": {
+      "title": "Churn risk",
+      "shadowMode": "shadow mode",
+      "hint": "ML prediction (plan §8) — not used to drive alerts yet; visible to Manager/Owner only.",
+      "chance": "chance of churn in 28 days",
+      "weekOf": "week of",
+      "model": "model",
+      "empty": "No score yet — runs weekly (Sunday), or trigger it from the alert inbox."
+    },
+    "notes": {
+      "title": "Notes",
+      "hint": "Context for coaches — e.g. \"recovering from a knee injury\". Notes can be added here or arrive from an import.",
+      "placeholder": "Add a note…",
+      "add": "Add",
+      "empty": "No notes yet."
+    },
+    "goals": {
+      "title": "Goals",
+      "addGoal": "+ Add goal",
+      "cancel": "Cancel",
+      "descriptionPlaceholder": "Description, e.g. 'first muscle-up'",
+      "metricPlaceholder": "Metric, e.g. 'strict muscle-ups'",
+      "baselinePlaceholder": "Baseline",
+      "targetPlaceholder": "Target",
+      "unitPlaceholder": "Unit",
+      "save": "Save",
+      "noProgress": "no progress yet",
+      "addProgress": "+ Progress",
+      "valuePlaceholder": "Value",
+      "empty": "No goals yet.",
+      "categories": {
+        "Strength": "Strength",
+        "Skill": "Skill",
+        "BodyComposition": "Body composition",
+        "Endurance": "Endurance",
+        "CompetitionEvent": "Competition event",
+        "HealthRehab": "Health / rehab",
+        "Consistency": "Consistency",
+        "Social": "Social"
+      }
+    },
+    "forms": {
+      "title": "Evaluation forms",
+      "hint": "Send a form link — the member answers without logging in; negative or health flags create an alert automatically.",
+      "send": "Send",
+      "sentLink": "Sent — link:"
+    },
+    "consent": {
+      "title": "Consent",
+      "hint": "Which channels this member can be messaged on. Defaults to granted until revoked."
+    },
+    "outreach": {
+      "title": "Outreach history",
+      "holdout": "[holdout — no message sent]",
+      "empty": "No messages sent yet."
+    },
+    "timeline": {
+      "title": "Timeline",
+      "all": "All",
+      "empty": "No activity yet.",
+      "filters": { "note": "Note", "Attended": "Attended", "NoShow": "No-show", "LateCancel": "Late cancel" }
+    },
+    "workoutMix": {
+      "title": "Workout mix",
+      "hint": "Attended workout types over the last 4 months, by tag.",
+      "empty": "No tagged attended workouts in the last 4 months."
+    }
+  },
+  "import": {
+    "title": "Import",
+    "hint": "Excel workbook with sheets {members}, {classes}, {attendance}, and optionally {notes} (member_id, note). Re-uploading the same file is safe — it updates existing rows instead of duplicating them.",
+    "importing": "Importing…",
+    "importAction": "Import",
+    "failed": "Import failed.",
+    "resultTitle": "Result",
+    "members": "members",
+    "classes": "classes",
+    "bookings": "bookings",
+    "notes": "notes",
+    "rowIssues": "row issue(s)",
+    "row": "row"
+  },
+  "login": {
+    "signIn": "Sign in",
+    "email": "Email",
+    "password": "Password",
+    "signingIn": "Signing in…",
+    "failed": "Login failed.",
+    "bootstrapLink": "First time? Set up your box"
+  },
+  "bootstrap": {
+    "title": "Set up your box",
+    "subtitle": "This only works once — the first Owner account.",
+    "boxName": "Box name",
+    "yourName": "Your name",
+    "email": "Email",
+    "password": "Password",
+    "creating": "Creating…",
+    "createBox": "Create box",
+    "failed": "Setup failed.",
+    "backToSignIn": "Back to sign in"
+  }
+}

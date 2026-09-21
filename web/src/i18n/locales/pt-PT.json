@@ -1,0 +1,224 @@
+{
+  "nav": {
+    "members": "Membros",
+    "alerts": "Caixa de alertas",
+    "dashboards": "Painéis",
+    "import": "Importar",
+    "settings": "Definições"
+  },
+  "theme": { "light": "Claro", "dark": "Escuro" },
+  "signOut": "Terminar sessão",
+  "severity": { "Info": "Regular", "Amber": "Alta", "Red": "Crítica" },
+  "members": {
+    "title": "Membros",
+    "searchPlaceholder": "Pesquisar por nome…",
+    "name": "Nome",
+    "email": "Email",
+    "status": "Estado",
+    "joined": "Inscrito em",
+    "tenure": "Antiguidade",
+    "empty": "Ainda sem membros — experimente a página de Importação.",
+    "allStatuses": "Todos os estados",
+    "statuses": { "Active": "Ativo", "Frozen": "Congelado", "Cancelled": "Cancelado", "Lapsed": "Inativo" }
+  },
+  "settings": {
+    "title": "Definições",
+    "language": "Idioma",
+    "languageHint": "Aplica-se à interface da aplicação — não ao idioma das mensagens enviadas aos membros.",
+    "rules": "Regras",
+    "rulesHint": "As regras de alerta ativas para o seu box: o que verificam e se estão ativas.",
+    "code": "Código",
+    "family": "Família",
+    "description": "Descrição",
+    "enabled": "Ativa",
+    "enabledHint": "Desliga esta regra para o seu box — deixa de criar novos alertas; os já criados não são afetados."
+  },
+  "alerts": {
+    "title": "Caixa de alertas",
+    "allSeverities": "Todas as severidades",
+    "allRoles": "Todas as funções",
+    "runEscalation": "Executar varrimento de escalonamento",
+    "runEscalationHint": "Executa agora o varrimento de escalonamento de SLA (também corre automaticamente a cada 15 min).",
+    "severity": "Severidade",
+    "member": "Membro",
+    "family": "Família",
+    "rules": "Regras",
+    "status": "Estado",
+    "assigned": "Atribuído",
+    "due": "Prazo",
+    "claim": "Assumir",
+    "claimHint": "Atribui-lhe este alerta, removendo-o da fila dos outros treinadores. Qualquer pessoa pode assumir qualquer alerta.",
+    "sendMessage": "Enviar mensagem",
+    "sendMessageHint": "Envia agora uma mensagem (modelo ou personalizada) a este membro, fora das regras automáticas.",
+    "resolve": "Resolver",
+    "resolveHint": "Fecha o alerta com um resultado. É apenas um registo — não envia mensagem nem altera mais nada.",
+    "empty": "Nada por aqui — a execução diária das regras (ou \"Executar varrimento de escalonamento\") cria/atualiza alertas.",
+    "resolveTitle": "Resolver alerta",
+    "outcome": "Resultado",
+    "note": "Nota (opcional)",
+    "cancel": "Cancelar",
+    "confirm": "Confirmar",
+    "sendTitle": "Enviar mensagem",
+    "template": "Modelo",
+    "customText": "Texto personalizado",
+    "messageLabel": "Mensagem",
+    "messagePlaceholder": "Escreva a sua mensagem…",
+    "send": "Enviar"
+  },
+  "dashboards": {
+    "title": "Painéis",
+    "tabs": { "retention": "Retenção", "alertOps": "Operação de alertas", "workouts": "Treinos", "myWeek": "A minha semana" },
+    "retention": {
+      "active": "Ativos",
+      "newThisMonth": "Novos este mês",
+      "churnedThisMonth": "Perdidos este mês",
+      "netChange": "Variação líquida",
+      "monthlyChurn": "Churn mensal",
+      "lapsed": "Inativos (≥45d, ainda ativos)",
+      "cohortTitle": "Retenção por coorte",
+      "exportCsv": "Exportar CSV",
+      "cohortHint": "% de cada coorte de inscrição ainda ativa, por meses desde a inscrição.",
+      "cohort": "Coorte",
+      "size": "Tamanho",
+      "tenureTitle": "Antiguidade até ao churn",
+      "tenureHint": "Quanto tempo os membros ficaram antes de cancelar."
+    },
+    "alertOps": {
+      "slaCompliance": "Cumprimento de SLA",
+      "avgHoursToClaim": "Horas médias até assumir",
+      "saveRate": "Taxa de recuperação",
+      "treatedReturnRate": "Taxa de retorno (tratados)",
+      "holdoutReturnRate": "Taxa de retorno (grupo de controlo)",
+      "volumeTitle": "Volume",
+      "bySeverity": "Por severidade",
+      "byFamily": "Por família",
+      "outcomesTitle": "Distribuição de resultados",
+      "empty": "Ainda sem alertas resolvidos."
+    },
+    "workouts": {
+      "heatmapTitle": "Dia × janela × tipo (últimas 12 semanas)",
+      "windowsHint": "Janelas: Early antes das 08:00 · Morning 08:00–11:00 · Lunch 11:00–14:00 · Afternoon 14:00–17:00 · Evening depois das 17:00",
+      "day": "Dia",
+      "window": "Janela",
+      "type": "Tipo",
+      "visits": "Visitas",
+      "empty": "Sem visitas registadas nas últimas 12 semanas.",
+      "fillTitle": "Ocupação de aulas por horário",
+      "classType": "Tipo de aula",
+      "avgFill": "Ocupação média",
+      "fillEmpty": "Sem dados de capacidade nas últimas 12 semanas."
+    },
+    "myWeek": {
+      "openCoach": "Abertos (Treinador)",
+      "dueThisWeek": "Com prazo esta semana",
+      "resolvedThisWeek": "Resolvidos esta semana",
+      "openAlertsTitle": "Alertas abertos",
+      "due": "Prazo",
+      "empty": "Nada em aberto — boa semana."
+    }
+  },
+  "memberDetail": {
+    "joined": "inscrito em",
+    "risk": {
+      "title": "Risco de churn",
+      "shadowMode": "modo sombra",
+      "hint": "Previsão de ML (plano §8) — ainda não usada para gerar alertas; visível apenas para Gestor/Proprietário.",
+      "chance": "probabilidade de churn em 28 dias",
+      "weekOf": "semana de",
+      "model": "modelo",
+      "empty": "Ainda sem pontuação — corre semanalmente (domingo), ou pode ser despoletado a partir da caixa de alertas."
+    },
+    "notes": {
+      "title": "Notas",
+      "hint": "Contexto para treinadores — ex. \"a recuperar de uma lesão no joelho\". Podem ser adicionadas aqui ou vir de uma importação.",
+      "placeholder": "Adicionar uma nota…",
+      "add": "Adicionar",
+      "empty": "Ainda sem notas."
+    },
+    "goals": {
+      "title": "Objetivos",
+      "addGoal": "+ Adicionar objetivo",
+      "cancel": "Cancelar",
+      "descriptionPlaceholder": "Descrição, ex. 'primeiro muscle-up'",
+      "metricPlaceholder": "Métrica, ex. 'muscle-ups estritos'",
+      "baselinePlaceholder": "Valor inicial",
+      "targetPlaceholder": "Meta",
+      "unitPlaceholder": "Unidade",
+      "save": "Guardar",
+      "noProgress": "ainda sem progresso",
+      "addProgress": "+ Progresso",
+      "valuePlaceholder": "Valor",
+      "empty": "Ainda sem objetivos.",
+      "categories": {
+        "Strength": "Força",
+        "Skill": "Técnica",
+        "BodyComposition": "Composição corporal",
+        "Endurance": "Resistência",
+        "CompetitionEvent": "Evento de competição",
+        "HealthRehab": "Saúde / reabilitação",
+        "Consistency": "Consistência",
+        "Social": "Social"
+      }
+    },
+    "forms": {
+      "title": "Formulários de avaliação",
+      "hint": "Envie um link do formulário — o membro responde sem iniciar sessão; sinais negativos ou de saúde criam um alerta automaticamente.",
+      "send": "Enviar",
+      "sentLink": "Enviado — link:"
+    },
+    "consent": {
+      "title": "Consentimento",
+      "hint": "Em que canais este membro pode ser contactado. Por definição, permitido até ser revogado."
+    },
+    "outreach": {
+      "title": "Histórico de contacto",
+      "holdout": "[grupo de controlo — mensagem não enviada]",
+      "empty": "Ainda sem mensagens enviadas."
+    },
+    "timeline": {
+      "title": "Linha do tempo",
+      "all": "Todos",
+      "empty": "Ainda sem atividade.",
+      "filters": { "note": "Nota", "Attended": "Presença", "NoShow": "Falta", "LateCancel": "Cancelamento tardio" }
+    },
+    "workoutMix": {
+      "title": "Mistura de treinos",
+      "hint": "Tipos de treino frequentados nos últimos 4 meses, por categoria.",
+      "empty": "Sem treinos com categoria nos últimos 4 meses."
+    }
+  },
+  "import": {
+    "title": "Importar",
+    "hint": "Ficheiro Excel com as folhas {members}, {classes}, {attendance} e, opcionalmente, {notes} (member_id, note). Reimportar o mesmo ficheiro é seguro — atualiza as linhas existentes em vez de as duplicar.",
+    "importing": "A importar…",
+    "importAction": "Importar",
+    "failed": "A importação falhou.",
+    "resultTitle": "Resultado",
+    "members": "membros",
+    "classes": "aulas",
+    "bookings": "reservas",
+    "notes": "notas",
+    "rowIssues": "problema(s) de linha",
+    "row": "linha"
+  },
+  "login": {
+    "signIn": "Iniciar sessão",
+    "email": "Email",
+    "password": "Palavra-passe",
+    "signingIn": "A iniciar sessão…",
+    "failed": "Início de sessão falhou.",
+    "bootstrapLink": "Primeira vez? Configure o seu box"
+  },
+  "bootstrap": {
+    "title": "Configurar o seu box",
+    "subtitle": "Isto só funciona uma vez — a primeira conta de Proprietário.",
+    "boxName": "Nome do box",
+    "yourName": "O seu nome",
+    "email": "Email",
+    "password": "Palavra-passe",
+    "creating": "A criar…",
+    "createBox": "Criar box",
+    "failed": "A configuração falhou.",
+    "backToSignIn": "Voltar ao início de sessão"
+  }
+}

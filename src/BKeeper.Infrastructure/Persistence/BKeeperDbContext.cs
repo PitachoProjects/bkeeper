@@ -22,6 +22,7 @@ public class BKeeperDbContext(DbContextOptions<BKeeperDbContext> options, ICurre
     public DbSet<Member> Members => Set<Member>();
     public DbSet<MemberNote> MemberNotes => Set<MemberNote>();
     public DbSet<Membership> Memberships => Set<Membership>();
+    public DbSet<MembershipFreeze> MembershipFreezes => Set<MembershipFreeze>();
     public DbSet<ClassSession> ClassSessions => Set<ClassSession>();
     public DbSet<Workout> Workouts => Set<Workout>();
     public DbSet<WorkoutTag> WorkoutTags => Set<WorkoutTag>();
@@ -50,11 +51,14 @@ public class BKeeperDbContext(DbContextOptions<BKeeperDbContext> options, ICurre
         builder.Entity<Member>().HasIndex(m => new { m.BoxId, m.ExternalId });
         builder.Entity<ClassSession>().HasIndex(s => new { s.BoxId, s.ExternalId });
         builder.Entity<Booking>().HasIndex(b => new { b.BoxId, b.ExternalId });
+        builder.Entity<MembershipFreeze>().HasIndex(f => new { f.BoxId, f.ExternalId });
+        builder.Entity<Goal>().HasIndex(g => new { g.BoxId, g.ExternalId });
         builder.Entity<MemberWeek>().HasIndex(w => new { w.BoxId, w.MemberId, w.IsoWeekStart }).IsUnique();
         builder.Entity<Alert>().HasIndex(a => new { a.BoxId, a.Fingerprint });
 
         builder.Entity<Member>().HasMany(m => m.Notes).WithOne(n => n.Member).HasForeignKey(n => n.MemberId);
         builder.Entity<Member>().HasMany(m => m.Memberships).WithOne(m => m.Member).HasForeignKey(m => m.MemberId);
+        builder.Entity<Membership>().HasMany(m => m.Freezes).WithOne(f => f.Membership).HasForeignKey(f => f.MembershipId);
         builder.Entity<Member>().HasMany(m => m.Bookings).WithOne(b => b.Member).HasForeignKey(b => b.MemberId);
         builder.Entity<ClassSession>().HasMany(s => s.Bookings).WithOne(b => b.Session).HasForeignKey(b => b.SessionId);
         builder.Entity<Workout>().HasMany(w => w.Tags).WithOne(t => t.Workout).HasForeignKey(t => t.WorkoutId);

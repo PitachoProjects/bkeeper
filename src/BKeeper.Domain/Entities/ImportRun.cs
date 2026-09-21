@@ -12,6 +12,9 @@ public class ImportRun : BoxScopedEntity
     public int SessionsUpserted { get; set; }
     public int BookingsUpserted { get; set; }
     public int NotesUpserted { get; set; }
+    public int MembershipsUpserted { get; set; }
+    public int FreezesUpserted { get; set; }
+    public int GoalsUpserted { get; set; }
     public int RowErrorCount { get; set; }
     public ImportRunStatus Status { get; set; } = ImportRunStatus.Pending;
 

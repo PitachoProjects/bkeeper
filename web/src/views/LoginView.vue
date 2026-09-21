@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
 import { api, ApiError } from '@/lib/api'
 import type { LoginResponse } from '@/stores/auth'
 
+const { t } = useI18n()
 const email = ref('')
 const password = ref('')
 const error = ref('')
@@ -20,7 +22,7 @@ async function submit() {
     auth.setSession(data)
     router.push({ name: 'members' })
   } catch (e) {
-    error.value = e instanceof ApiError ? e.message : 'Login failed.'
+    error.value = e instanceof ApiError ? e.message : t('login.failed')
   } finally {
     loading.value = false
   }
@@ -31,12 +33,12 @@ async function submit() {
   <div class="auth-page">
     <form class="auth-card" @submit.prevent="submit">
       <h1>BKeeper</h1>
-      <p class="subtitle">Sign in</p>
-      <label>Email<input v-model="email" type="email" required autofocus /></label>
-      <label>Password<input v-model="password" type="password" required /></label>
+      <p class="subtitle">{{ t('login.signIn') }}</p>
+      <label>{{ t('login.email') }}<input v-model="email" type="email" required autofocus /></label>
+      <label>{{ t('login.password') }}<input v-model="password" type="password" required /></label>
       <p v-if="error" class="error">{{ error }}</p>
-      <button type="submit" :disabled="loading">{{ loading ? 'Signing in…' : 'Sign in' }}</button>
-      <RouterLink to="/bootstrap" class="bootstrap-link">First time? Set up your box</RouterLink>
+      <button type="submit" :disabled="loading">{{ loading ? t('login.signingIn') : t('login.signIn') }}</button>
+      <RouterLink to="/bootstrap" class="bootstrap-link">{{ t('login.bootstrapLink') }}</RouterLink>
     </form>
   </div>
 </template>

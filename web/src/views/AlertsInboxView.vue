@@ -1,6 +1,11 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import { api } from '@/lib/api'
+import { useI18n } from 'vue-i18n'
+import { api, ApiError } from '@/lib/api'
+import { severityLabel } from '@/lib/labels'
+import InfoTip from '@/components/InfoTip.vue'
+
+const { t } = useI18n()
 
 interface AlertListItem {
   id: string
@@ -92,8 +97,8 @@ async function confirmSend() {
       customBody: sendMode.value === 'custom' ? sendCustomBody.value : null,
     })
     sendingId.value = null
-  } catch {
-    sendError.value = 'Could not send — check the member has consent on at least one channel.'
+  } catch (e) {
+    sendError.value = e instanceof ApiError ? e.message : 'Could not send the message.'
   }
 }
 
@@ -106,22 +111,22 @@ onMounted(async () => {
 <template>
   <div>
     <div class="header">
-      <h1>Alert inbox</h1>
+      <h1>{{ t('alerts.title') }}</h1>
       <div class="filters">
         <select v-model="severityFilter" @change="load">
-          <option value="">All severities</option>
-          <option value="Red">Red</option>
-          <option value="Amber">Amber</option>
-          <option value="Info">Info</option>
+          <option value="">{{ t('alerts.allSeverities') }}</option>
+          <option value="Red">{{ t('severity.Red') }}</option>
+          <option value="Amber">{{ t('severity.Amber') }}</option>
+          <option value="Info">{{ t('severity.Info') }}</option>
         </select>
         <select v-model="roleFilter" @change="load">
-          <option value="">All roles</option>
+          <option value="">{{ t('alerts.allRoles') }}</option>
           <option value="Coach">Coach</option>
           <option value="Manager">Manager</option>
           <option value="Owner">Owner</option>
         </select>
-        <button class="ghost" title="Runs the SLA escalation sweep now (also runs every 15 min automatically)" @click="runEscalation">
-          Run escalation sweep
+        <button class="ghost" :title="t('alerts.runEscalationHint')" @click="runEscalation">
+          {{ t('alerts.runEscalation') }}
         </button>
       </div>
     </div>
@@ -130,19 +135,19 @@ onMounted(async () => {
     <table v-else>
       <thead>
         <tr>
-          <th>Severity</th>
-          <th>Member</th>
-          <th>Family</th>
-          <th>Rules</th>
-          <th>Status</th>
-          <th>Assigned</th>
-          <th>Due</th>
+          <th>{{ t('alerts.severity') }}</th>
+          <th>{{ t('alerts.member') }}</th>
+          <th>{{ t('alerts.family') }}</th>
+          <th>{{ t('alerts.rules') }}</th>
+          <th>{{ t('alerts.status') }}</th>
+          <th>{{ t('alerts.assigned') }}</th>
+          <th>{{ t('alerts.due') }}</th>
           <th></th>
         </tr>
       </thead>
       <tbody>
         <tr v-for="a in alerts" :key="a.id">
-          <td><span class="badge" :class="a.severity.toLowerCase()">{{ a.severity }}</span></td>
+          <td><span class="badge" :class="a.severity.toLowerCase()">{{ severityLabel(a.severity) }}</span></td>
           <td><RouterLink :to="`/members/${a.memberId}`">{{ a.memberName }}</RouterLink></td>
           <td>{{ a.family }}</td>
           <td>{{ a.ruleCodes.join(', ') }}</td>
@@ -150,58 +155,58 @@ onMounted(async () => {
           <td>{{ a.assignedRole }}</td>
           <td>{{ new Date(a.dueAt).toLocaleString() }}</td>
           <td class="actions">
-            <button v-if="!a.claimedBy" @click="claim(a.id)">Claim</button>
-            <button class="ghost" @click="startSend(a.id)">Send message</button>
-            <button @click="startResolve(a.id)">Resolve</button>
+            <button v-if="!a.claimedBy" @click="claim(a.id)">{{ t('alerts.claim') }}<InfoTip :text="t('alerts.claimHint')" /></button>
+            <button class="ghost" @click="startSend(a.id)">{{ t('alerts.sendMessage') }}<InfoTip :text="t('alerts.sendMessageHint')" /></button>
+            <button @click="startResolve(a.id)">{{ t('alerts.resolve') }}<InfoTip :text="t('alerts.resolveHint')" /></button>
           </td>
         </tr>
         <tr v-if="alerts.length === 0">
-          <td colspan="8">Nothing here — the daily rule run (or "Run escalation sweep") creates/updates alerts.</td>
+          <td colspan="8">{{ t('alerts.empty') }}</td>
         </tr>
       </tbody>
     </table>
 
     <div v-if="resolvingId" class="modal-backdrop" @click.self="resolvingId = null">
       <div class="modal">
-        <h2>Resolve alert</h2>
+        <h2>{{ t('alerts.resolveTitle') }}</h2>
         <label>
-          Outcome
+          {{ t('alerts.outcome') }}
           <select v-model="outcome">
             <option v-for="o in outcomes" :key="o" :value="o">{{ o.replaceAll('_', ' ') }}</option>
           </select>
         </label>
         <label>
-          Note (optional)
+          {{ t('alerts.note') }}
           <textarea v-model="outcomeNote" rows="3"></textarea>
         </label>
         <div class="modal-actions">
-          <button class="ghost" @click="resolvingId = null">Cancel</button>
-          <button @click="confirmResolve">Confirm</button>
+          <button class="ghost" @click="resolvingId = null">{{ t('alerts.cancel') }}</button>
+          <button @click="confirmResolve">{{ t('alerts.confirm') }}</button>
         </div>
       </div>
     </div>
 
     <div v-if="sendingId" class="modal-backdrop" @click.self="sendingId = null">
       <div class="modal">
-        <h2>Send message</h2>
+        <h2>{{ t('alerts.sendTitle') }}</h2>
         <div class="mode-toggle">
-          <label><input type="radio" value="template" v-model="sendMode" /> Template</label>
-          <label><input type="radio" value="custom" v-model="sendMode" /> Custom text</label>
+          <label><input type="radio" value="template" v-model="sendMode" /> {{ t('alerts.template') }}</label>
+          <label><input type="radio" value="custom" v-model="sendMode" /> {{ t('alerts.customText') }}</label>
         </div>
         <label v-if="sendMode === 'template'">
-          Template
+          {{ t('alerts.template') }}
           <select v-model="sendTemplate">
-            <option v-for="t in TEMPLATE_KEYS" :key="t" :value="t">{{ t.replaceAll('_', ' ') }}</option>
+            <option v-for="tk in TEMPLATE_KEYS" :key="tk" :value="tk">{{ tk.replaceAll('_', ' ') }}</option>
           </select>
         </label>
         <label v-else>
-          Message
-          <textarea v-model="sendCustomBody" rows="4" placeholder="Write your message…"></textarea>
+          {{ t('alerts.messageLabel') }}
+          <textarea v-model="sendCustomBody" rows="4" :placeholder="t('alerts.messagePlaceholder')"></textarea>
         </label>
         <p v-if="sendError" class="error">{{ sendError }}</p>
         <div class="modal-actions">
-          <button class="ghost" @click="sendingId = null">Cancel</button>
-          <button @click="confirmSend">Send</button>
+          <button class="ghost" @click="sendingId = null">{{ t('alerts.cancel') }}</button>
+          <button @click="confirmSend">{{ t('alerts.send') }}</button>
         </div>
       </div>
     </div>

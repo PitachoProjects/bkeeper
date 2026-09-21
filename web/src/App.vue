@@ -1,10 +1,14 @@
 <script setup lang="ts">
 import { RouterLink, RouterView, useRoute } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
 import { useThemeStore } from '@/stores/theme'
+import { useLocaleStore } from '@/stores/locale'
 
 const auth = useAuthStore()
 const theme = useThemeStore()
+useLocaleStore()
+const { t } = useI18n()
 const route = useRoute()
 </script>
 
@@ -13,19 +17,20 @@ const route = useRoute()
     <aside class="sidebar">
       <div class="brand">BKeeper</div>
       <nav>
-        <RouterLink to="/members">Members</RouterLink>
-        <RouterLink to="/alerts">Alert inbox</RouterLink>
-        <RouterLink to="/dashboards">Dashboards</RouterLink>
-        <RouterLink to="/import">Import</RouterLink>
+        <RouterLink to="/members">{{ t('nav.members') }}</RouterLink>
+        <RouterLink to="/alerts">{{ t('nav.alerts') }}</RouterLink>
+        <RouterLink to="/dashboards">{{ t('nav.dashboards') }}</RouterLink>
+        <RouterLink to="/import">{{ t('nav.import') }}</RouterLink>
+        <RouterLink to="/settings">{{ t('nav.settings') }}</RouterLink>
       </nav>
       <div class="theme-switch" role="group" aria-label="Theme">
-        <button :class="{ active: theme.mode === 'light' }" @click="theme.setMode('light')">Light</button>
-        <button :class="{ active: theme.mode === 'dark' }" @click="theme.setMode('dark')">Dark</button>
+        <button :class="{ active: theme.mode === 'light' }" @click="theme.setMode('light')">{{ t('theme.light') }}</button>
+        <button :class="{ active: theme.mode === 'dark' }" @click="theme.setMode('dark')">{{ t('theme.dark') }}</button>
       </div>
       <div class="user">
         <div>{{ auth.displayName }}</div>
         <div class="role">{{ auth.role }}</div>
-        <button class="ghost" @click="auth.logout()">Sign out</button>
+        <button class="ghost" @click="auth.logout()">{{ t('signOut') }}</button>
       </div>
     </aside>
     <main class="content"><RouterView /></main>
@@ -36,7 +41,7 @@ const route = useRoute()
 <style scoped>
 .shell {
   display: flex;
-  min-height: 100vh;
+  height: 100vh;
   background: var(--color-bg);
 }
 .sidebar {
@@ -48,6 +53,8 @@ const route = useRoute()
   flex-direction: column;
   gap: 1.5rem;
   padding: 1.5rem 1.1rem;
+  height: 100%;
+  overflow-y: auto;
 }
 .brand {
   font-weight: 700;
@@ -125,6 +132,7 @@ nav a.router-link-active {
   flex: 1;
   padding: 2rem 2.5rem;
   background: var(--color-bg);
-  min-height: 100vh;
+  height: 100%;
+  overflow-y: auto;
 }
 </style>

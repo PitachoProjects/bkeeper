@@ -21,9 +21,10 @@ public record AlertOperationsDto(
     double SlaComplianceRatePct, double? AvgTimeToClaimHours, Dictionary<string, int> OutcomesMix,
     double SaveRatePct, double? HoldoutReturnRatePct, double? TreatedReturnRatePct);
 
-public record HeatmapCellDto(string Window, string Type, int Count);
+public record HeatmapCellDto(string Day, string Window, string Type, int Count);
 public record ClassFillDto(string ClassType, string Window, double AvgFillPct);
-public record WorkoutMixDto(List<HeatmapCellDto> WindowTypeHeatmap, List<ClassFillDto> ClassFillBySlot);
+public record RecentSessionDto(DateTimeOffset Date, string ClassType, string? WorkoutTitle, string? WorkoutDescription, string Tag, int AttendedCount);
+public record WorkoutMixDto(List<HeatmapCellDto> WindowTypeHeatmap, List<ClassFillDto> ClassFillBySlot, List<RecentSessionDto> RecentSessions);
 
 public record MyWeekAlertDto(Guid Id, Guid MemberId, string MemberName, string Severity, string Status, DateTimeOffset DueAt);
 public record MyWeekDto(List<MyWeekAlertDto> OpenAlerts, int DueThisWeekCount, int ResolvedThisWeekCount, int CelebrationsThisWeekCount);
@@ -139,9 +140,9 @@ public class DashboardsController(BKeeperDbContext db) : ControllerBase
         var tagsByWorkout = tags.GroupBy(t => t.WorkoutId).ToDictionary(g => g.Key, g => g.OrderByDescending(t => t.Weight).First().Tag);
 
         var heatmap = visits
-            .Select(v => new { v.Window, Type = v.WorkoutId.HasValue && tagsByWorkout.TryGetValue(v.WorkoutId.Value, out var t) ? t.ToString() : "untagged" })
-            .GroupBy(v => (v.Window.ToString(), v.Type))
-            .Select(g => new HeatmapCellDto(g.Key.Item1, g.Key.Item2, g.Count()))
+            .Select(v => new { v.StartsAt.DayOfWeek, v.Window, Type = v.WorkoutId.HasValue && tagsByWorkout.TryGetValue(v.WorkoutId.Value, out var t) ? t.ToString() : "untagged" })
+            .GroupBy(v => (v.DayOfWeek, v.Window.ToString(), v.Type))
+            .Select(g => new HeatmapCellDto(g.Key.DayOfWeek.ToString()[..3], g.Key.Item2, g.Key.Item3, g.Count()))
             .OrderByDescending(c => c.Count)
             .ToList();
 
@@ -158,7 +159,25 @@ public class DashboardsController(BKeeperDbContext db) : ControllerBase
             .OrderByDescending(c => c.AvgFillPct)
             .ToList();
 
-        return Ok(new WorkoutMixDto(heatmap, classFill));
+        var workouts = await db.Workouts.ToDictionaryAsync(w => w.Id);
+        var attendedCounts = await db.Bookings.Where(b => b.Status == BookingStatus.Attended)
+            .GroupBy(b => b.SessionId).Select(g => new { SessionId = g.Key, Count = g.Count() }).ToListAsync();
+        var attendedCountMap = attendedCounts.ToDictionary(x => x.SessionId, x => x.Count);
+
+        var recentSessions = await db.ClassSessions
+            .Where(s => s.StartsAt >= since && s.WorkoutId != null)
+            .OrderByDescending(s => s.StartsAt)
+            .Take(20)
+            .Select(s => new { s.Id, s.StartsAt, s.ClassType, s.WorkoutId })
+            .ToListAsync();
+        var recentSessionDtos = recentSessions.Select(s =>
+        {
+            var workout = s.WorkoutId.HasValue ? workouts.GetValueOrDefault(s.WorkoutId.Value) : null;
+            var tag = s.WorkoutId.HasValue && tagsByWorkout.TryGetValue(s.WorkoutId.Value, out var t) ? t.ToString() : "untagged";
+            return new RecentSessionDto(s.StartsAt, s.ClassType, workout?.Title, workout?.Description, tag, attendedCountMap.GetValueOrDefault(s.Id, 0));
+        }).ToList();
+
+        return Ok(new WorkoutMixDto(heatmap, classFill, recentSessionDtos));
     }
 
     /// <summary>Plan §9: coach's "my week" — open alerts assigned to Coach or claimed by me, due this week.</summary>

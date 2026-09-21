@@ -122,14 +122,26 @@ public class AlertsController(BKeeperDbContext db, EscalationJob escalationJob, 
             ["form_link"] = "",
         };
 
-        var outreach = await outreachQueue.QueueAsync(alert.BoxId, alert.MemberId, alert.Id, OutreachSentBy.User, CurrentUserId(),
+        var result = await outreachQueue.QueueAsync(alert.BoxId, alert.MemberId, alert.Id, OutreachSentBy.User, CurrentUserId(),
             alert.Severity, request.TemplateKey, alert.Member.Language, variables, request.CustomBody);
+
+        if (result.Outreach is null)
+        {
+            return BadRequest(result.Failure switch
+            {
+                OutreachQueueFailure.NoConsentOnAnyChannel => "Member has no consent on any channel (WhatsApp, push, or email).",
+                OutreachQueueFailure.UnknownTemplate => "Unknown or unrenderable template key.",
+                OutreachQueueFailure.RequiresHuman => "This alert requires a human-sent message.",
+                OutreachQueueFailure.DroppedFrequencyCap => "An automated message was already sent to this member in the last 7 days.",
+                _ => "Could not queue the message.",
+            });
+        }
 
         db.AlertEvents.Add(new AlertEvent { BoxId = alert.BoxId, AlertId = alert.Id, Type = AlertEventType.Outreach, ActorUserId = CurrentUserId() });
         alert.LastActivityAt = DateTimeOffset.UtcNow;
         await db.SaveChangesAsync();
 
-        return outreach is null ? BadRequest("Could not queue the message (no consent on any channel, or unknown template).") : Ok();
+        return Ok();
     }
 
     private Guid? CurrentUserId() =>

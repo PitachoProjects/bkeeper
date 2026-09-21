@@ -1,6 +1,10 @@
 <script setup lang="ts">
 import { onMounted, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { api } from '@/lib/api'
+import { severityLabel } from '@/lib/labels'
+
+const { t } = useI18n()
 
 interface CohortCurve {
   cohortLabel: string
@@ -34,6 +38,7 @@ interface AlertOperations {
 }
 
 interface HeatmapCell {
+  day: string
   window: string
   type: string
   count: number
@@ -62,8 +67,8 @@ interface MyWeek {
   resolvedThisWeekCount: number
 }
 
-const TABS = ['Retention', 'Alert ops', 'Workouts', 'My week'] as const
-const tab = ref<(typeof TABS)[number]>('Retention')
+const TABS = ['retention', 'alertOps', 'workouts', 'myWeek'] as const
+const tab = ref<(typeof TABS)[number]>('retention')
 const loading = ref(true)
 
 const retention = ref<RetentionOverview | null>(null)
@@ -74,10 +79,10 @@ const myWeek = ref<MyWeek | null>(null)
 async function loadTab() {
   loading.value = true
   try {
-    if (tab.value === 'Retention' && !retention.value) retention.value = await api.get('/dashboards/retention')
-    if (tab.value === 'Alert ops' && !alertOps.value) alertOps.value = await api.get('/dashboards/alerts')
-    if (tab.value === 'Workouts' && !workouts.value) workouts.value = await api.get('/dashboards/workouts')
-    if (tab.value === 'My week' && !myWeek.value) myWeek.value = await api.get('/dashboards/my-week')
+    if (tab.value === 'retention' && !retention.value) retention.value = await api.get('/dashboards/retention')
+    if (tab.value === 'alertOps' && !alertOps.value) alertOps.value = await api.get('/dashboards/alerts')
+    if (tab.value === 'workouts' && !workouts.value) workouts.value = await api.get('/dashboards/workouts')
+    if (tab.value === 'myWeek' && !myWeek.value) myWeek.value = await api.get('/dashboards/my-week')
   } finally {
     loading.value = false
   }
@@ -100,34 +105,34 @@ onMounted(loadTab)
 
 <template>
   <div>
-    <h1>Dashboards</h1>
+    <h1>{{ t('dashboards.title') }}</h1>
     <div class="tabs">
-      <button v-for="t in TABS" :key="t" :class="{ ghost: tab !== t }" @click="tab = t">{{ t }}</button>
+      <button v-for="tabId in TABS" :key="tabId" :class="{ ghost: tab !== tabId }" @click="tab = tabId">{{ t(`dashboards.tabs.${tabId}`) }}</button>
     </div>
 
     <p v-if="loading">Loading…</p>
 
-    <template v-else-if="tab === 'Retention' && retention">
+    <template v-else-if="tab === 'retention' && retention">
       <div class="stat-row">
-        <div class="stat"><span class="stat-value">{{ retention.activeCount }}</span><span class="stat-label">Active</span></div>
-        <div class="stat"><span class="stat-value">{{ retention.newThisMonth }}</span><span class="stat-label">New this month</span></div>
-        <div class="stat"><span class="stat-value">{{ retention.churnedThisMonth }}</span><span class="stat-label">Churned this month</span></div>
-        <div class="stat"><span class="stat-value" :class="retention.netChange >= 0 ? 'good-text' : 'bad-text'">{{ retention.netChange >= 0 ? '+' : '' }}{{ retention.netChange }}</span><span class="stat-label">Net change</span></div>
-        <div class="stat"><span class="stat-value">{{ retention.monthlyChurnRatePct }}%</span><span class="stat-label">Monthly churn</span></div>
-        <div class="stat"><span class="stat-value">{{ retention.lapsedCount }}</span><span class="stat-label">Lapsed (≥45d, still active)</span></div>
+        <div class="stat"><span class="stat-value">{{ retention.activeCount }}</span><span class="stat-label">{{ t('dashboards.retention.active') }}</span></div>
+        <div class="stat"><span class="stat-value">{{ retention.newThisMonth }}</span><span class="stat-label">{{ t('dashboards.retention.newThisMonth') }}</span></div>
+        <div class="stat"><span class="stat-value">{{ retention.churnedThisMonth }}</span><span class="stat-label">{{ t('dashboards.retention.churnedThisMonth') }}</span></div>
+        <div class="stat"><span class="stat-value" :class="retention.netChange >= 0 ? 'good-text' : 'bad-text'">{{ retention.netChange >= 0 ? '+' : '' }}{{ retention.netChange }}</span><span class="stat-label">{{ t('dashboards.retention.netChange') }}</span></div>
+        <div class="stat"><span class="stat-value">{{ retention.monthlyChurnRatePct }}%</span><span class="stat-label">{{ t('dashboards.retention.monthlyChurn') }}</span></div>
+        <div class="stat"><span class="stat-value">{{ retention.lapsedCount }}</span><span class="stat-label">{{ t('dashboards.retention.lapsed') }}</span></div>
       </div>
 
       <section class="card">
         <div class="section-header">
-          <h2>Cohort retention</h2>
-          <button class="ghost" @click="exportRetentionCsv">Export CSV</button>
+          <h2>{{ t('dashboards.retention.cohortTitle') }}</h2>
+          <button class="ghost" @click="exportRetentionCsv">{{ t('dashboards.retention.exportCsv') }}</button>
         </div>
-        <p class="hint">% of each join-month cohort still active, by months since joining.</p>
+        <p class="hint">{{ t('dashboards.retention.cohortHint') }}</p>
         <table class="cohort-table">
           <thead>
             <tr>
-              <th>Cohort</th>
-              <th>Size</th>
+              <th>{{ t('dashboards.retention.cohort') }}</th>
+              <th>{{ t('dashboards.retention.size') }}</th>
               <th v-for="(_, i) in retention.cohorts[0]?.retentionByMonth ?? []" :key="i">M{{ i }}</th>
             </tr>
           </thead>
@@ -144,8 +149,8 @@ onMounted(loadTab)
       </section>
 
       <section class="card">
-        <h2>Tenure at churn</h2>
-        <p class="hint">How long members stuck around before cancelling.</p>
+        <h2>{{ t('dashboards.retention.tenureTitle') }}</h2>
+        <p class="hint">{{ t('dashboards.retention.tenureHint') }}</p>
         <div class="histogram">
           <div v-for="b in retention.tenureAtChurnHistogram" :key="b.label" class="bar-row">
             <span class="bar-label">{{ b.label }}</span>
@@ -156,78 +161,79 @@ onMounted(loadTab)
       </section>
     </template>
 
-    <template v-else-if="tab === 'Alert ops' && alertOps">
+    <template v-else-if="tab === 'alertOps' && alertOps">
       <div class="stat-row">
-        <div class="stat"><span class="stat-value">{{ alertOps.slaComplianceRatePct }}%</span><span class="stat-label">SLA compliance</span></div>
-        <div class="stat"><span class="stat-value">{{ alertOps.avgTimeToClaimHours ?? '—' }}</span><span class="stat-label">Avg hours to claim</span></div>
-        <div class="stat"><span class="stat-value">{{ alertOps.saveRatePct }}%</span><span class="stat-label">Save rate</span></div>
-        <div class="stat"><span class="stat-value">{{ alertOps.treatedReturnRatePct ?? '—' }}%</span><span class="stat-label">Treated return rate</span></div>
-        <div class="stat"><span class="stat-value">{{ alertOps.holdoutReturnRatePct ?? '—' }}%</span><span class="stat-label">Holdout return rate</span></div>
+        <div class="stat"><span class="stat-value">{{ alertOps.slaComplianceRatePct }}%</span><span class="stat-label">{{ t('dashboards.alertOps.slaCompliance') }}</span></div>
+        <div class="stat"><span class="stat-value">{{ alertOps.avgTimeToClaimHours ?? '—' }}</span><span class="stat-label">{{ t('dashboards.alertOps.avgHoursToClaim') }}</span></div>
+        <div class="stat"><span class="stat-value">{{ alertOps.saveRatePct }}%</span><span class="stat-label">{{ t('dashboards.alertOps.saveRate') }}</span></div>
+        <div class="stat"><span class="stat-value">{{ alertOps.treatedReturnRatePct ?? '—' }}%</span><span class="stat-label">{{ t('dashboards.alertOps.treatedReturnRate') }}</span></div>
+        <div class="stat"><span class="stat-value">{{ alertOps.holdoutReturnRatePct ?? '—' }}%</span><span class="stat-label">{{ t('dashboards.alertOps.holdoutReturnRate') }}</span></div>
       </div>
 
       <section class="card">
-        <h2>Volume</h2>
+        <h2>{{ t('dashboards.alertOps.volumeTitle') }}</h2>
         <div class="two-col">
           <div>
-            <h3>By severity</h3>
-            <ul class="kv"><li v-for="(v, k) in alertOps.volumeBySeverity" :key="k"><span>{{ k }}</span><span>{{ v }}</span></li></ul>
+            <h3>{{ t('dashboards.alertOps.bySeverity') }}</h3>
+            <ul class="kv"><li v-for="(v, k) in alertOps.volumeBySeverity" :key="k"><span>{{ severityLabel(k) }}</span><span>{{ v }}</span></li></ul>
           </div>
           <div>
-            <h3>By family</h3>
+            <h3>{{ t('dashboards.alertOps.byFamily') }}</h3>
             <ul class="kv"><li v-for="(v, k) in alertOps.volumeByFamily" :key="k"><span>{{ k }}</span><span>{{ v }}</span></li></ul>
           </div>
         </div>
       </section>
 
       <section class="card">
-        <h2>Outcomes mix</h2>
+        <h2>{{ t('dashboards.alertOps.outcomesTitle') }}</h2>
         <ul class="kv"><li v-for="(v, k) in alertOps.outcomesMix" :key="k"><span>{{ k.replaceAll('_', ' ') }}</span><span>{{ v }}</span></li></ul>
-        <p v-if="Object.keys(alertOps.outcomesMix).length === 0" class="empty">No resolved alerts yet.</p>
+        <p v-if="Object.keys(alertOps.outcomesMix).length === 0" class="empty">{{ t('dashboards.alertOps.empty') }}</p>
       </section>
     </template>
 
-    <template v-else-if="tab === 'Workouts' && workouts">
+    <template v-else-if="tab === 'workouts' && workouts">
       <section class="card">
-        <h2>Window × type (last 12 weeks)</h2>
+        <h2>{{ t('dashboards.workouts.heatmapTitle') }}</h2>
+        <p class="hint">{{ t('dashboards.workouts.windowsHint') }}</p>
         <table>
-          <thead><tr><th>Window</th><th>Type</th><th>Visits</th></tr></thead>
+          <thead><tr><th>{{ t('dashboards.workouts.day') }}</th><th>{{ t('dashboards.workouts.window') }}</th><th>{{ t('dashboards.workouts.type') }}</th><th>{{ t('dashboards.workouts.visits') }}</th></tr></thead>
           <tbody>
-            <tr v-for="(c, i) in workouts.windowTypeHeatmap" :key="i"><td>{{ c.window }}</td><td>{{ c.type }}</td><td>{{ c.count }}</td></tr>
-            <tr v-if="workouts.windowTypeHeatmap.length === 0"><td colspan="3" class="empty">No attended visits in the last 12 weeks.</td></tr>
+            <tr v-for="(c, i) in workouts.windowTypeHeatmap" :key="i"><td>{{ c.day }}</td><td>{{ c.window }}</td><td>{{ c.type }}</td><td>{{ c.count }}</td></tr>
+            <tr v-if="workouts.windowTypeHeatmap.length === 0"><td colspan="4" class="empty">{{ t('dashboards.workouts.empty') }}</td></tr>
           </tbody>
         </table>
       </section>
 
       <section class="card">
-        <h2>Class fill by slot</h2>
+        <h2>{{ t('dashboards.workouts.fillTitle') }}</h2>
         <table>
-          <thead><tr><th>Class type</th><th>Window</th><th>Avg fill</th></tr></thead>
+          <thead><tr><th>{{ t('dashboards.workouts.classType') }}</th><th>{{ t('dashboards.workouts.window') }}</th><th>{{ t('dashboards.workouts.avgFill') }}</th></tr></thead>
           <tbody>
             <tr v-for="(c, i) in workouts.classFillBySlot" :key="i"><td>{{ c.classType }}</td><td>{{ c.window }}</td><td>{{ c.avgFillPct }}%</td></tr>
-            <tr v-if="workouts.classFillBySlot.length === 0"><td colspan="3" class="empty">No capacity data in the last 12 weeks.</td></tr>
+            <tr v-if="workouts.classFillBySlot.length === 0"><td colspan="3" class="empty">{{ t('dashboards.workouts.fillEmpty') }}</td></tr>
           </tbody>
         </table>
       </section>
     </template>
 
-    <template v-else-if="tab === 'My week' && myWeek">
+    <template v-else-if="tab === 'myWeek' && myWeek">
       <div class="stat-row">
-        <div class="stat"><span class="stat-value">{{ myWeek.openAlerts.length }}</span><span class="stat-label">Open (Coach)</span></div>
-        <div class="stat"><span class="stat-value">{{ myWeek.dueThisWeekCount }}</span><span class="stat-label">Due this week</span></div>
-        <div class="stat"><span class="stat-value">{{ myWeek.resolvedThisWeekCount }}</span><span class="stat-label">Resolved this week</span></div>
+        <div class="stat"><span class="stat-value">{{ myWeek.openAlerts.length }}</span><span class="stat-label">{{ t('dashboards.myWeek.openCoach') }}</span></div>
+        <div class="stat"><span class="stat-value">{{ myWeek.dueThisWeekCount }}</span><span class="stat-label">{{ t('dashboards.myWeek.dueThisWeek') }}</span></div>
+        <div class="stat"><span class="stat-value">{{ myWeek.resolvedThisWeekCount }}</span><span class="stat-label">{{ t('dashboards.myWeek.resolvedThisWeek') }}</span></div>
       </div>
       <section class="card">
-        <h2>Open alerts</h2>
+        <h2>{{ t('dashboards.myWeek.openAlertsTitle') }}</h2>
         <table>
-          <thead><tr><th>Severity</th><th>Member</th><th>Status</th><th>Due</th></tr></thead>
+          <thead><tr><th>{{ t('alerts.severity') }}</th><th>{{ t('alerts.member') }}</th><th>{{ t('alerts.status') }}</th><th>{{ t('dashboards.myWeek.due') }}</th></tr></thead>
           <tbody>
             <tr v-for="a in myWeek.openAlerts" :key="a.id">
-              <td><span class="badge" :class="a.severity.toLowerCase()">{{ a.severity }}</span></td>
+              <td><span class="badge" :class="a.severity.toLowerCase()">{{ severityLabel(a.severity) }}</span></td>
               <td><RouterLink :to="`/members/${a.memberId}`">{{ a.memberName }}</RouterLink></td>
               <td>{{ a.status }}</td>
               <td>{{ new Date(a.dueAt).toLocaleString() }}</td>
             </tr>
-            <tr v-if="myWeek.openAlerts.length === 0"><td colspan="4" class="empty">Nothing open — nice week.</td></tr>
+            <tr v-if="myWeek.openAlerts.length === 0"><td colspan="4" class="empty">{{ t('dashboards.myWeek.empty') }}</td></tr>
           </tbody>
         </table>
       </section>

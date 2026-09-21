@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
 import { api, ApiError } from '@/lib/api'
 import type { LoginResponse } from '@/stores/auth'
 
+const { t } = useI18n()
 const boxName = ref('')
 const ownerName = ref('')
 const ownerEmail = ref('')
@@ -27,7 +29,7 @@ async function submit() {
     auth.setSession(data)
     router.push({ name: 'members' })
   } catch (e) {
-    error.value = e instanceof ApiError ? e.message : 'Setup failed.'
+    error.value = e instanceof ApiError ? e.message : t('bootstrap.failed')
   } finally {
     loading.value = false
   }
@@ -37,15 +39,15 @@ async function submit() {
 <template>
   <div class="auth-page">
     <form class="auth-card" @submit.prevent="submit">
-      <h1>Set up your box</h1>
-      <p class="subtitle">This only works once — the first Owner account.</p>
-      <label>Box name<input v-model="boxName" required /></label>
-      <label>Your name<input v-model="ownerName" required /></label>
-      <label>Email<input v-model="ownerEmail" type="email" required /></label>
-      <label>Password<input v-model="ownerPassword" type="password" minlength="8" required /></label>
+      <h1>{{ t('bootstrap.title') }}</h1>
+      <p class="subtitle">{{ t('bootstrap.subtitle') }}</p>
+      <label>{{ t('bootstrap.boxName') }}<input v-model="boxName" required /></label>
+      <label>{{ t('bootstrap.yourName') }}<input v-model="ownerName" required /></label>
+      <label>{{ t('bootstrap.email') }}<input v-model="ownerEmail" type="email" required /></label>
+      <label>{{ t('bootstrap.password') }}<input v-model="ownerPassword" type="password" minlength="8" required /></label>
       <p v-if="error" class="error">{{ error }}</p>
-      <button type="submit" :disabled="loading">{{ loading ? 'Creating…' : 'Create box' }}</button>
-      <RouterLink to="/login" class="bootstrap-link">Back to sign in</RouterLink>
+      <button type="submit" :disabled="loading">{{ loading ? t('bootstrap.creating') : t('bootstrap.createBox') }}</button>
+      <RouterLink to="/login" class="bootstrap-link">{{ t('bootstrap.backToSignIn') }}</RouterLink>
     </form>
   </div>
 </template>

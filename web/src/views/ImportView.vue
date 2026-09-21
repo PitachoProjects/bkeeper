@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { api, ApiError } from '@/lib/api'
+
+const { t } = useI18n()
 
 interface ImportRowIssue {
   sheet: string
@@ -38,7 +41,7 @@ async function upload() {
     form.append('file', file.value)
     result.value = await api.postForm<ImportResult>('/imports', form)
   } catch (e) {
-    error.value = e instanceof ApiError ? e.message : 'Import failed.'
+    error.value = e instanceof ApiError ? e.message : t('import.failed')
   } finally {
     loading.value = false
   }
@@ -47,32 +50,33 @@ async function upload() {
 
 <template>
   <div>
-    <h1>Import</h1>
-    <p class="hint">
-      Excel workbook with sheets <code>Members</code>, <code>Classes</code>, <code>Attendance</code>, and optionally
-      <code>Notes</code> (member_id, note). Re-uploading the same file is safe — it updates existing rows instead of
-      duplicating them.
-    </p>
+    <h1>{{ t('import.title') }}</h1>
+    <i18n-t keypath="import.hint" tag="p" class="hint">
+      <template #members><code>Members</code></template>
+      <template #classes><code>Classes</code></template>
+      <template #attendance><code>Attendance</code></template>
+      <template #notes><code>Notes</code></template>
+    </i18n-t>
     <div class="card">
       <input type="file" accept=".xlsx" @change="onFileChange" />
-      <button :disabled="!file || loading" @click="upload">{{ loading ? 'Importing…' : 'Import' }}</button>
+      <button :disabled="!file || loading" @click="upload">{{ loading ? t('import.importing') : t('import.importAction') }}</button>
     </div>
 
     <p v-if="error" class="error">{{ error }}</p>
 
     <div v-if="result" class="card">
-      <h2>Result</h2>
+      <h2>{{ t('import.resultTitle') }}</h2>
       <ul class="summary">
-        <li>{{ result.membersUpserted }} members</li>
-        <li>{{ result.sessionsUpserted }} classes</li>
-        <li>{{ result.bookingsUpserted }} bookings</li>
-        <li>{{ result.notesUpserted }} notes</li>
+        <li>{{ result.membersUpserted }} {{ t('import.members') }}</li>
+        <li>{{ result.sessionsUpserted }} {{ t('import.classes') }}</li>
+        <li>{{ result.bookingsUpserted }} {{ t('import.bookings') }}</li>
+        <li>{{ result.notesUpserted }} {{ t('import.notes') }}</li>
       </ul>
       <div v-if="result.issues.length" class="issues">
-        <h3>{{ result.issues.length }} row issue(s)</h3>
+        <h3>{{ result.issues.length }} {{ t('import.rowIssues') }}</h3>
         <ul>
           <li v-for="(issue, i) in result.issues" :key="i">
-            {{ issue.sheet }} row {{ issue.row }}: {{ issue.message }}
+            {{ issue.sheet }} {{ t('import.row') }} {{ issue.row }}: {{ issue.message }}
           </li>
         </ul>
       </div>

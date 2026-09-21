@@ -16,6 +16,7 @@ public record ConsentDto(NotificationChannel Channel, bool Granted);
 public record SetConsentRequest(NotificationChannel Channel, bool Granted);
 public record OutreachDto(Guid Id, NotificationChannel Channel, string? TemplateKey, string Body, OutreachSentBy SentBy,
     OutreachStatus Status, bool IsHoldout, DateTimeOffset CreatedAt);
+public record WorkoutMixItem(string Tag, int Count);
 
 [ApiController]
 [Route("members")]
@@ -47,7 +48,7 @@ public class MembersController(BKeeperDbContext db) : ControllerBase
     public async Task<ActionResult<List<TimelineItem>>> Timeline(Guid id)
     {
         var bookings = await db.Bookings.Where(b => b.MemberId == id)
-            .Join(db.ClassSessions, b => b.SessionId, s => s.Id, (b, s) => new TimelineItem("booking", s.StartsAt, $"{b.Status} — {s.ClassType}"))
+            .Join(db.ClassSessions, b => b.SessionId, s => s.Id, (b, s) => new TimelineItem(b.Status.ToString(), s.StartsAt, $"{b.Status} — {s.ClassType} ({s.Window})"))
             .ToListAsync();
 
         var notes = await db.MemberNotes.Where(n => n.MemberId == id && n.IsActive)
@@ -133,5 +134,31 @@ public class MembersController(BKeeperDbContext db) : ControllerBase
             .Select(o => new OutreachDto(o.Id, o.Channel, o.TemplateKey, o.Body, o.SentBy, o.Status, o.IsHoldout, o.CreatedAt))
             .ToListAsync();
         return Ok(history);
+    }
+
+    /// <summary>Per-member workout-type mix (plan-adjacent: same tag-weighted classification as the box-wide
+    /// Dashboards/Workouts heatmap, just scoped to one member) for the "trends/habits" radar chart.
+    /// Zero-fills every <see cref="WorkoutTagType"/> so the chart always has a consistent set of axes.</summary>
+    [HttpGet("{id:guid}/workout-mix")]
+    public async Task<ActionResult<List<WorkoutMixItem>>> WorkoutMix(Guid id, [FromQuery] int days = 120)
+    {
+        var since = DateTime.UtcNow.AddDays(-days);
+        var visits = await db.Bookings.Where(b => b.MemberId == id && b.Status == BookingStatus.Attended)
+            .Join(db.ClassSessions, b => b.SessionId, s => s.Id, (b, s) => new { s.WorkoutId, s.StartsAt })
+            .Where(v => v.StartsAt >= since)
+            .ToListAsync();
+
+        var tags = await db.WorkoutTags.ToListAsync();
+        var tagsByWorkout = tags.GroupBy(t => t.WorkoutId).ToDictionary(g => g.Key, g => g.OrderByDescending(t => t.Weight).First().Tag);
+
+        var counts = visits
+            .Where(v => v.WorkoutId.HasValue && tagsByWorkout.ContainsKey(v.WorkoutId.Value))
+            .GroupBy(v => tagsByWorkout[v.WorkoutId!.Value])
+            .ToDictionary(g => g.Key, g => g.Count());
+
+        var mix = Enum.GetValues<WorkoutTagType>()
+            .Select(tag => new WorkoutMixItem(tag.ToString(), counts.GetValueOrDefault(tag, 0)))
+            .ToList();
+        return Ok(mix);
     }
 }

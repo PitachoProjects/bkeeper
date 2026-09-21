@@ -9,8 +9,10 @@ using Microsoft.EntityFrameworkCore;
 namespace BKeeper.Infrastructure.Import;
 
 /// <summary>
-/// Parses the fixed v1 Excel template (Members / Classes / Attendance / optional Notes sheets, §4 of
-/// the plan) and upserts idempotently by (box_id, external_id).
+/// Parses the fixed v1 Excel template (Members / Classes / Attendance, plus the optional Notes / Plans /
+/// Freezes / Goals sheets from §4 of the plan) and upserts idempotently by (box_id, external_id).
+/// Plans is a lookup only (no table of its own) — sessions_per_week/monthly_price_eur are copied onto
+/// each member's Membership row, same denormalised-snapshot approach as ClassSession.CoachName.
 /// ponytail: no column-mapping wizard and no email/phone fuzzy-match review queue yet — a single
 /// fixed header layout and exact member_id matching only. Upgrade path: add a mapping-profile table
 /// once a second box's export uses different headers.
@@ -29,11 +31,17 @@ public class ExcelImportService(BKeeperDbContext db) : IExcelImportService
         var sessions = await ImportClassesAsync(boxId, workbook, result, ct);
         await ImportAttendanceAsync(boxId, workbook, members, sessions, result, ct);
         await ImportNotesAsync(boxId, workbook, members, result, ct);
+        var memberships = await ImportMembershipsAsync(boxId, workbook, members, result, ct);
+        await ImportFreezesAsync(boxId, workbook, members, memberships, result, ct);
+        await ImportGoalsAsync(boxId, workbook, members, result, ct);
 
         run.MembersUpserted = result.MembersUpserted;
         run.SessionsUpserted = result.SessionsUpserted;
         run.BookingsUpserted = result.BookingsUpserted;
         run.NotesUpserted = result.NotesUpserted;
+        run.MembershipsUpserted = result.MembershipsUpserted;
+        run.FreezesUpserted = result.FreezesUpserted;
+        run.GoalsUpserted = result.GoalsUpserted;
         run.RowErrorCount = result.Issues.Count;
         run.Status = result.Issues.Count == 0 ? ImportRunStatus.Succeeded : ImportRunStatus.PartialSuccess;
         result.Succeeded = true;
@@ -98,6 +106,12 @@ public class ExcelImportService(BKeeperDbContext db) : IExcelImportService
 
         var existing = await db.ClassSessions.Where(s => s.BoxId == boxId).ToDictionaryAsync(s => s.ExternalId ?? "", ct);
 
+        // ponytail: EF can't see Added-but-unsaved Workouts, so a DB lookup per row would create a
+        // duplicate Workout for every session sharing a (date, title) within this same run. Preload
+        // + cache locally so upserts within one import dedupe correctly, not just across runs.
+        var workoutCache = await db.Workouts.Where(w => w.BoxId == boxId)
+            .ToDictionaryAsync(w => (w.Date, w.Title), ct);
+
         foreach (var (row, cells, rowNum) in ReadRows(ws))
         {
             var sessionId = cells.GetValueOrDefault("session_id");
@@ -135,7 +149,7 @@ public class ExcelImportService(BKeeperDbContext db) : IExcelImportService
             if (!string.IsNullOrWhiteSpace(title))
             {
                 var description = cells.GetValueOrDefault("workout_description");
-                session.WorkoutId = (await UpsertWorkoutAsync(boxId, date, title, description, ct)).Id;
+                session.WorkoutId = UpsertWorkout(boxId, workoutCache, date, title, description).Id;
             }
 
             byExternalId[sessionId] = session;
@@ -145,29 +159,26 @@ public class ExcelImportService(BKeeperDbContext db) : IExcelImportService
         return byExternalId;
     }
 
-    private async Task<Workout> UpsertWorkoutAsync(Guid boxId, DateOnly date, string title, string? description, CancellationToken ct)
+    private Workout UpsertWorkout(Guid boxId, Dictionary<(DateOnly, string), Workout> cache, DateOnly date, string title, string? description)
     {
-        var workout = await db.Workouts.Include(w => w.Tags)
-            .FirstOrDefaultAsync(w => w.BoxId == boxId && w.Date == date && w.Title == title, ct);
+        if (cache.TryGetValue((date, title), out var workout)) return workout;
 
-        if (workout is null)
+        workout = new Workout { BoxId = boxId, Date = date, Title = title, Description = description, Source = "import" };
+        db.Workouts.Add(workout);
+        cache[(date, title)] = workout;
+
+        var classification = Application.Import.WorkoutClassifier.Classify(title, description);
+        foreach (var (tag, weight) in classification)
         {
-            workout = new Workout { BoxId = boxId, Date = date, Title = title, Description = description, Source = "import" };
-            db.Workouts.Add(workout);
-
-            var classification = Application.Import.WorkoutClassifier.Classify(title, description);
-            foreach (var (tag, weight) in classification)
+            db.WorkoutTags.Add(new WorkoutTag
             {
-                db.WorkoutTags.Add(new WorkoutTag
-                {
-                    BoxId = boxId,
-                    Workout = workout,
-                    Tag = tag,
-                    Weight = weight,
-                    Source = WorkoutTagSource.Rule,
-                    Confidence = Application.Import.WorkoutClassifier.Confidence(classification),
-                });
-            }
+                BoxId = boxId,
+                Workout = workout,
+                Tag = tag,
+                Weight = weight,
+                Source = WorkoutTagSource.Rule,
+                Confidence = Application.Import.WorkoutClassifier.Confidence(classification),
+            });
         }
 
         return workout;
@@ -254,6 +265,184 @@ public class ExcelImportService(BKeeperDbContext db) : IExcelImportService
         }
     }
 
+    private async Task<Dictionary<string, Membership>> ImportMembershipsAsync(Guid boxId, XLWorkbook wb,
+        Dictionary<string, Member> members, ImportResult result, CancellationToken ct)
+    {
+        var byMemberExternalId = new Dictionary<string, Membership>();
+        if (!wb.Worksheets.TryGetWorksheet("Members", out var ws)) return byMemberExternalId;
+
+        var plans = ReadPlans(wb);
+        if (members.Count == 0) members = await db.Members.Where(m => m.BoxId == boxId).ToDictionaryAsync(m => m.ExternalId ?? "", ct);
+        var existing = await db.Memberships.Where(m => m.BoxId == boxId).ToDictionaryAsync(m => m.MemberId, ct);
+
+        foreach (var (row, cells, rowNum) in ReadRows(ws))
+        {
+            var memberId = cells.GetValueOrDefault("member_id");
+            var planName = cells.GetValueOrDefault("plan");
+            if (memberId is null || !members.TryGetValue(memberId, out var member) || string.IsNullOrWhiteSpace(planName))
+                continue;
+
+            if (!existing.TryGetValue(member.Id, out var membership))
+            {
+                membership = new Membership { BoxId = boxId, MemberId = member.Id };
+                db.Memberships.Add(membership);
+                existing[member.Id] = membership;
+            }
+
+            membership.PlanName = planName;
+            if (plans.TryGetValue(planName, out var plan))
+            {
+                membership.PlanFreqPerWeek = plan.FreqPerWeek;
+                membership.MonthlyPriceEur = plan.MonthlyPriceEur;
+            }
+            membership.StartDate = member.JoinDate;
+            membership.EndDate = member.CancelDate;
+            membership.Status = member.Status switch
+            {
+                MemberStatus.Frozen => MembershipStatus.Frozen,
+                MemberStatus.Cancelled or MemberStatus.Lapsed => MembershipStatus.Ended,
+                _ => MembershipStatus.Active,
+            };
+            membership.UpdatedAt = DateTimeOffset.UtcNow;
+
+            byMemberExternalId[memberId] = membership;
+            result.MembershipsUpserted++;
+        }
+
+        return byMemberExternalId;
+    }
+
+    private static Dictionary<string, (int? FreqPerWeek, decimal? MonthlyPriceEur)> ReadPlans(XLWorkbook wb)
+    {
+        var plans = new Dictionary<string, (int?, decimal?)>();
+        if (!wb.Worksheets.TryGetWorksheet("Plans", out var ws)) return plans;
+
+        foreach (var (row, cells, rowNum) in ReadRows(ws))
+        {
+            var name = cells.GetValueOrDefault("plan_name");
+            if (string.IsNullOrWhiteSpace(name)) continue;
+
+            int? freq = int.TryParse(cells.GetValueOrDefault("sessions_per_week"), out var f) ? f : null;
+            decimal? price = decimal.TryParse(cells.GetValueOrDefault("monthly_price_eur"), NumberStyles.Number, CultureInfo.InvariantCulture, out var p) ? p : null;
+            plans[name] = (freq, price);
+        }
+
+        return plans;
+    }
+
+    private async Task ImportFreezesAsync(Guid boxId, XLWorkbook wb, Dictionary<string, Member> members,
+        Dictionary<string, Membership> memberships, ImportResult result, CancellationToken ct)
+    {
+        if (!wb.Worksheets.TryGetWorksheet("Freezes", out var ws)) return;
+        if (members.Count == 0) members = await db.Members.Where(m => m.BoxId == boxId).ToDictionaryAsync(m => m.ExternalId ?? "", ct);
+        if (memberships.Count == 0)
+            memberships = await db.Memberships.Include(m => m.Member).Where(m => m.BoxId == boxId)
+                .ToDictionaryAsync(m => m.Member!.ExternalId ?? "", ct);
+
+        var existingFreezes = await db.MembershipFreezes.Where(f => f.BoxId == boxId)
+            .ToDictionaryAsync(f => f.ExternalId ?? Guid.NewGuid().ToString(), ct);
+
+        foreach (var (row, cells, rowNum) in ReadRows(ws))
+        {
+            var freezeId = cells.GetValueOrDefault("freeze_id");
+            var memberId = cells.GetValueOrDefault("member_id");
+            if (memberId is null || !members.TryGetValue(memberId, out _))
+            {
+                result.Issues.Add(new ImportRowIssue("Freezes", rowNum, $"unknown member_id '{memberId}'"));
+                continue;
+            }
+            if (!memberships.TryGetValue(memberId, out var membership))
+            {
+                result.Issues.Add(new ImportRowIssue("Freezes", rowNum, $"member '{memberId}' has no membership"));
+                continue;
+            }
+            if (!TryParseDate(cells.GetValueOrDefault("freeze_start"), out var start) ||
+                !TryParseDate(cells.GetValueOrDefault("freeze_end"), out var end))
+            {
+                result.Issues.Add(new ImportRowIssue("Freezes", rowNum, "freeze_start/freeze_end missing or invalid"));
+                continue;
+            }
+
+            MembershipFreeze? freeze = null;
+            if (freezeId is not null) existingFreezes.TryGetValue(freezeId, out freeze);
+
+            if (freeze is null)
+            {
+                freeze = new MembershipFreeze { BoxId = boxId, ExternalId = freezeId, MembershipId = membership.Id };
+                db.MembershipFreezes.Add(freeze);
+                if (freezeId is not null) existingFreezes[freezeId] = freeze;
+            }
+
+            freeze.StartDate = start;
+            freeze.EndDate = end;
+            freeze.Reason = cells.GetValueOrDefault("reason");
+            freeze.UpdatedAt = DateTimeOffset.UtcNow;
+
+            result.FreezesUpserted++;
+        }
+    }
+
+    private async Task ImportGoalsAsync(Guid boxId, XLWorkbook wb, Dictionary<string, Member> members, ImportResult result, CancellationToken ct)
+    {
+        if (!wb.Worksheets.TryGetWorksheet("Goals", out var ws)) return;
+        if (members.Count == 0) members = await db.Members.Where(m => m.BoxId == boxId).ToDictionaryAsync(m => m.ExternalId ?? "", ct);
+
+        var existing = await db.Goals.Where(g => g.BoxId == boxId).ToDictionaryAsync(g => g.ExternalId ?? Guid.NewGuid().ToString(), ct);
+
+        foreach (var (row, cells, rowNum) in ReadRows(ws))
+        {
+            var goalId = cells.GetValueOrDefault("goal_id");
+            var memberId = cells.GetValueOrDefault("member_id");
+            if (memberId is null || !members.TryGetValue(memberId, out var member))
+            {
+                result.Issues.Add(new ImportRowIssue("Goals", rowNum, $"unknown member_id '{memberId}'"));
+                continue;
+            }
+
+            var category = ParseGoalCategory(cells.GetValueOrDefault("category"));
+            var description = cells.GetValueOrDefault("description");
+            if (category is null || string.IsNullOrWhiteSpace(description))
+            {
+                result.Issues.Add(new ImportRowIssue("Goals", rowNum, "category (recognised) and description are required"));
+                continue;
+            }
+
+            Goal? goal = null;
+            if (goalId is not null) existing.TryGetValue(goalId, out goal);
+
+            if (goal is null)
+            {
+                goal = new Goal { BoxId = boxId, ExternalId = goalId, MemberId = member.Id };
+                db.Goals.Add(goal);
+                if (goalId is not null) existing[goalId] = goal;
+            }
+
+            var unit = cells.GetValueOrDefault("unit");
+            goal.Category = category.Value;
+            goal.Description = description;
+            goal.Metric = unit ?? goal.Metric;
+            goal.Unit = unit;
+            if (double.TryParse(cells.GetValueOrDefault("target_value"), NumberStyles.Number, CultureInfo.InvariantCulture, out var target)) goal.TargetValue = target;
+            if (TryParseDate(cells.GetValueOrDefault("target_date"), out var targetDate)) goal.TargetDate = targetDate;
+            goal.UpdatedAt = DateTimeOffset.UtcNow;
+
+            result.GoalsUpserted++;
+        }
+    }
+
+    private static GoalCategory? ParseGoalCategory(string? value) => value?.Trim().ToLowerInvariant() switch
+    {
+        "strength" => GoalCategory.Strength,
+        "skill" => GoalCategory.Skill,
+        "body_composition" => GoalCategory.BodyComposition,
+        "endurance" => GoalCategory.Endurance,
+        "competition" => GoalCategory.CompetitionEvent,
+        "health" => GoalCategory.HealthRehab,
+        "consistency" => GoalCategory.Consistency,
+        "social" => GoalCategory.Social,
+        _ => null,
+    };
+
     private static IEnumerable<(IXLRow Row, Dictionary<string, string?> Cells, int RowNum)> ReadRows(IXLWorksheet ws)
     {
         var headerRow = ws.Row(1);
@@ -266,7 +455,13 @@ public class ExcelImportService(BKeeperDbContext db) : IExcelImportService
             var cells = new Dictionary<string, string?>();
             foreach (var (col, header) in headers)
             {
-                var value = row.Cell(col).GetString().Trim();
+                var cell = row.Cell(col);
+                // ponytail: GetString() on a DateTime-typed cell formats with the current culture (e.g.
+                // "7/28/2023 12:00:00 AM"), which TryParseDate/TryParseTime/TryParseDateTime below can't
+                // read. Use the typed value in a fixed round-trippable format instead for those cells.
+                var value = cell.DataType == XLDataType.DateTime
+                    ? cell.GetDateTime().ToString("O", CultureInfo.InvariantCulture)
+                    : cell.GetString().Trim();
                 cells[header] = string.IsNullOrEmpty(value) ? null : value;
             }
             yield return (row, cells, row.RowNumber());
