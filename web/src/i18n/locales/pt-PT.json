@@ -46,6 +46,16 @@
   "theme": { "light": "Claro", "dark": "Escuro" },
   "signOut": "Terminar sessão",
   "severity": { "Info": "Regular", "Amber": "Alta", "Red": "Crítica" },
+  "explainThis": {
+    "trigger": "O que significa isto?",
+    "loading": "A carregar…",
+    "error": "Não foi possível carregar a explicação.",
+    "definition": "Definição",
+    "howCalculated": "Como é calculado",
+    "period": "Período",
+    "whyItMatters": "Porque é importante",
+    "limitations": "Limitações"
+  },
   "members": {
     "title": "Membros",
     "searchPlaceholder": "Pesquisar por nome…",
@@ -126,6 +136,12 @@
   "dashboards": {
     "title": "Painéis",
     "tabs": { "retention": "Retenção", "alertOps": "Operação de alertas", "workouts": "Treinos", "myWeek": "A minha semana" },
+    "periods": {
+      "asOfToday": "a partir de hoje",
+      "thisMonth": "este mês civil",
+      "allTime": "desde sempre",
+      "next14Days": "14 dias após o contacto"
+    },
     "retention": {
       "active": "Ativos",
       "newThisMonth": "Novos este mês",

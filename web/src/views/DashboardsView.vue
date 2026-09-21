@@ -3,6 +3,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { api, ApiError } from '@/lib/api'
 import { severityLabel } from '@/lib/labels'
+import ExplainThis from '@/components/ExplainThis.vue'
 import { useAuthStore } from '@/stores/auth'
 
 const { t } = useI18n()
@@ -208,12 +209,36 @@ onMounted(() => {
         </select>
       </div>
       <div class="stat-row">
-        <div class="stat"><span class="stat-value">{{ retention.activeCount }}</span><span class="stat-label">{{ t('dashboards.retention.active') }}</span></div>
-        <div class="stat"><span class="stat-value">{{ retention.newThisMonth }}</span><span class="stat-label">{{ t('dashboards.retention.newThisMonth') }}</span></div>
-        <div class="stat"><span class="stat-value">{{ retention.churnedThisMonth }}</span><span class="stat-label">{{ t('dashboards.retention.churnedThisMonth') }}</span></div>
-        <div class="stat"><span class="stat-value" :class="retention.netChange >= 0 ? 'good-text' : 'bad-text'">{{ retention.netChange >= 0 ? '+' : '' }}{{ retention.netChange }}</span><span class="stat-label">{{ t('dashboards.retention.netChange') }}</span></div>
-        <div class="stat"><span class="stat-value">{{ retention.monthlyChurnRatePct }}%</span><span class="stat-label">{{ t('dashboards.retention.monthlyChurn') }}</span></div>
-        <div class="stat"><span class="stat-value">{{ retention.lapsedCount }}</span><span class="stat-label">{{ t('dashboards.retention.lapsed') }}</span></div>
+        <div class="stat">
+          <span class="stat-value">{{ retention.activeCount }}</span>
+          <span class="stat-label">{{ t('dashboards.retention.active') }}<ExplainThis metric-key="active_members" /></span>
+          <span class="stat-period">{{ t('dashboards.periods.asOfToday') }}</span>
+        </div>
+        <div class="stat">
+          <span class="stat-value">{{ retention.newThisMonth }}</span>
+          <span class="stat-label">{{ t('dashboards.retention.newThisMonth') }}<ExplainThis metric-key="new_members_this_month" /></span>
+          <span class="stat-period">{{ t('dashboards.periods.thisMonth') }}</span>
+        </div>
+        <div class="stat">
+          <span class="stat-value">{{ retention.churnedThisMonth }}</span>
+          <span class="stat-label">{{ t('dashboards.retention.churnedThisMonth') }}<ExplainThis metric-key="churned_members_this_month" /></span>
+          <span class="stat-period">{{ t('dashboards.periods.thisMonth') }}</span>
+        </div>
+        <div class="stat">
+          <span class="stat-value" :class="retention.netChange >= 0 ? 'good-text' : 'bad-text'">{{ retention.netChange >= 0 ? '+' : '' }}{{ retention.netChange }}</span>
+          <span class="stat-label">{{ t('dashboards.retention.netChange') }}<ExplainThis metric-key="net_member_change" /></span>
+          <span class="stat-period">{{ t('dashboards.periods.thisMonth') }}</span>
+        </div>
+        <div class="stat">
+          <span class="stat-value">{{ retention.monthlyChurnRatePct }}%</span>
+          <span class="stat-label">{{ t('dashboards.retention.monthlyChurn') }}<ExplainThis metric-key="monthly_churn_rate_pct" /></span>
+          <span class="stat-period">{{ t('dashboards.periods.thisMonth') }}</span>
+        </div>
+        <div class="stat">
+          <span class="stat-value">{{ retention.lapsedCount }}</span>
+          <span class="stat-label">{{ t('dashboards.retention.lapsed') }}<ExplainThis metric-key="lapsed_members" /></span>
+          <span class="stat-period">{{ t('dashboards.periods.asOfToday') }}</span>
+        </div>
       </div>
 
       <section v-if="isManagerOrOwner" class="card ai-summary">
@@ -247,7 +272,7 @@ onMounted(() => {
 
       <section class="card">
         <div class="section-header">
-          <h2>{{ t('dashboards.retention.cohortTitle') }}</h2>
+          <h2>{{ t('dashboards.retention.cohortTitle') }}<ExplainThis metric-key="cohort_retention_curve" /></h2>
           <button class="ghost" @click="exportRetentionCsv">{{ t('dashboards.retention.exportCsv') }}</button>
         </div>
         <p class="hint">{{ t('dashboards.retention.cohortHint') }}</p>
@@ -272,7 +297,7 @@ onMounted(() => {
       </section>
 
       <section class="card">
-        <h2>{{ t('dashboards.retention.tenureTitle') }}</h2>
+        <h2>{{ t('dashboards.retention.tenureTitle') }}<ExplainThis metric-key="tenure_at_churn_histogram" /></h2>
         <p class="hint">{{ t('dashboards.retention.tenureHint') }}</p>
         <div class="histogram">
           <div v-for="b in retention.tenureAtChurnHistogram" :key="b.label" class="bar-row">
@@ -286,11 +311,31 @@ onMounted(() => {
 
     <template v-else-if="tab === 'alertOps' && alertOps">
       <div class="stat-row">
-        <div class="stat"><span class="stat-value">{{ alertOps.slaComplianceRatePct }}%</span><span class="stat-label">{{ t('dashboards.alertOps.slaCompliance') }}</span></div>
-        <div class="stat"><span class="stat-value">{{ alertOps.avgTimeToClaimHours ?? '—' }}</span><span class="stat-label">{{ t('dashboards.alertOps.avgHoursToClaim') }}</span></div>
-        <div class="stat"><span class="stat-value">{{ alertOps.saveRatePct }}%</span><span class="stat-label">{{ t('dashboards.alertOps.saveRate') }}</span></div>
-        <div class="stat"><span class="stat-value">{{ alertOps.treatedReturnRatePct ?? '—' }}%</span><span class="stat-label">{{ t('dashboards.alertOps.treatedReturnRate') }}</span></div>
-        <div class="stat"><span class="stat-value">{{ alertOps.holdoutReturnRatePct ?? '—' }}%</span><span class="stat-label">{{ t('dashboards.alertOps.holdoutReturnRate') }}</span></div>
+        <div class="stat">
+          <span class="stat-value">{{ alertOps.slaComplianceRatePct }}%</span>
+          <span class="stat-label">{{ t('dashboards.alertOps.slaCompliance') }}<ExplainThis metric-key="alert_sla_compliance_rate_pct" /></span>
+          <span class="stat-period">{{ t('dashboards.periods.allTime') }}</span>
+        </div>
+        <div class="stat">
+          <span class="stat-value">{{ alertOps.avgTimeToClaimHours ?? '—' }}</span>
+          <span class="stat-label">{{ t('dashboards.alertOps.avgHoursToClaim') }}<ExplainThis metric-key="alert_avg_time_to_claim_hours" /></span>
+          <span class="stat-period">{{ t('dashboards.periods.allTime') }}</span>
+        </div>
+        <div class="stat">
+          <span class="stat-value">{{ alertOps.saveRatePct }}%</span>
+          <span class="stat-label">{{ t('dashboards.alertOps.saveRate') }}<ExplainThis metric-key="alert_save_rate_pct" /></span>
+          <span class="stat-period">{{ t('dashboards.periods.allTime') }}</span>
+        </div>
+        <div class="stat">
+          <span class="stat-value">{{ alertOps.treatedReturnRatePct ?? '—' }}%</span>
+          <span class="stat-label">{{ t('dashboards.alertOps.treatedReturnRate') }}<ExplainThis metric-key="alert_return_rate_holdout_vs_treated_pct" /></span>
+          <span class="stat-period">{{ t('dashboards.periods.next14Days') }}</span>
+        </div>
+        <div class="stat">
+          <span class="stat-value">{{ alertOps.holdoutReturnRatePct ?? '—' }}%</span>
+          <span class="stat-label">{{ t('dashboards.alertOps.holdoutReturnRate') }}<ExplainThis metric-key="alert_return_rate_holdout_vs_treated_pct" /></span>
+          <span class="stat-period">{{ t('dashboards.periods.next14Days') }}</span>
+        </div>
       </div>
 
       <section class="card">
@@ -427,6 +472,13 @@ onMounted(() => {
 .stat-label {
   font-size: 0.75rem;
   color: var(--color-text-muted);
+  display: flex;
+  align-items: center;
+}
+.stat-period {
+  font-size: 0.68rem;
+  color: var(--color-text-faint);
+  margin-top: 0.1rem;
 }
 .good-text {
   color: var(--color-success);

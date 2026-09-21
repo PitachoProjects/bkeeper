@@ -3,6 +3,7 @@ using System;
 using BKeeper.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace BKeeper.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(BKeeperDbContext))]
-    partial class BKeeperDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260921113722_AddMetricDefinitions")]
+    partial class AddMetricDefinitions
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -242,9 +245,6 @@ namespace BKeeper.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<Guid?>("CoachId")
-                        .HasColumnType("uuid");
-
                     b.Property<string>("CoachName")
                         .HasColumnType("text");
 
@@ -268,48 +268,11 @@ namespace BKeeper.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("CoachId");
-
                     b.HasIndex("WorkoutId");
 
                     b.HasIndex("BoxId", "ExternalId");
 
                     b.ToTable("ClassSessions");
-                });
-
-            modelBuilder.Entity("BKeeper.Domain.Entities.Coach", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid?>("ApplicationUserId")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("BoxId")
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("Email")
-                        .HasColumnType("text");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<int>("Status")
-                        .HasColumnType("integer");
-
-                    b.Property<DateTimeOffset>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("BoxId", "Name");
-
-                    b.ToTable("Coaches");
                 });
 
             modelBuilder.Entity("BKeeper.Domain.Entities.EvaluationForm", b =>
@@ -1401,57 +1364,6 @@ namespace BKeeper.Infrastructure.Persistence.Migrations
                     b.ToTable("Outreaches");
                 });
 
-            modelBuilder.Entity("BKeeper.Domain.Entities.Payment", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<decimal>("Amount")
-                        .HasColumnType("numeric");
-
-                    b.Property<Guid>("BoxId")
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("Currency")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<Guid>("MemberId")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid?>("MembershipId")
-                        .HasColumnType("uuid");
-
-                    b.Property<int>("Method")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("Notes")
-                        .HasColumnType("text");
-
-                    b.Property<DateOnly>("PaymentDate")
-                        .HasColumnType("date");
-
-                    b.Property<int>("Status")
-                        .HasColumnType("integer");
-
-                    b.Property<DateTimeOffset>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("MemberId");
-
-                    b.HasIndex("MembershipId");
-
-                    b.HasIndex("BoxId", "MemberId");
-
-                    b.ToTable("Payments");
-                });
-
             modelBuilder.Entity("BKeeper.Domain.Entities.RiskScore", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1470,10 +1382,6 @@ namespace BKeeper.Infrastructure.Persistence.Migrations
 
                     b.Property<Guid>("MemberId")
                         .HasColumnType("uuid");
-
-                    b.Property<string>("ModelType")
-                        .IsRequired()
-                        .HasColumnType("text");
 
                     b.Property<string>("ModelVersion")
                         .IsRequired()
@@ -1494,7 +1402,7 @@ namespace BKeeper.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("BoxId", "MemberId", "SnapshotWeek", "ModelType")
+                    b.HasIndex("BoxId", "MemberId", "SnapshotWeek")
                         .IsUnique();
 
                     b.ToTable("RiskScores");
@@ -1859,16 +1767,9 @@ namespace BKeeper.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("BKeeper.Domain.Entities.ClassSession", b =>
                 {
-                    b.HasOne("BKeeper.Domain.Entities.Coach", "Coach")
-                        .WithMany()
-                        .HasForeignKey("CoachId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
                     b.HasOne("BKeeper.Domain.Entities.Workout", "Workout")
                         .WithMany()
                         .HasForeignKey("WorkoutId");
-
-                    b.Navigation("Coach");
 
                     b.Navigation("Workout");
                 });
@@ -1967,24 +1868,6 @@ namespace BKeeper.Infrastructure.Persistence.Migrations
                         .IsRequired();
 
                     b.Navigation("Member");
-                });
-
-            modelBuilder.Entity("BKeeper.Domain.Entities.Payment", b =>
-                {
-                    b.HasOne("BKeeper.Domain.Entities.Member", "Member")
-                        .WithMany()
-                        .HasForeignKey("MemberId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("BKeeper.Domain.Entities.Membership", "Membership")
-                        .WithMany()
-                        .HasForeignKey("MembershipId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.Navigation("Member");
-
-                    b.Navigation("Membership");
                 });
 
             modelBuilder.Entity("BKeeper.Domain.Entities.WorkoutTag", b =>

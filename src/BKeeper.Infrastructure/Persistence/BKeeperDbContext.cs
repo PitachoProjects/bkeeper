@@ -1,5 +1,6 @@
 using System.Reflection;
 using BKeeper.Application.Abstractions;
+using BKeeper.Application.Metrics;
 using BKeeper.Domain.Common;
 using BKeeper.Domain.Entities;
 using BKeeper.Infrastructure.Identity;
@@ -43,6 +44,7 @@ public class BKeeperDbContext(DbContextOptions<BKeeperDbContext> options, ICurre
     public DbSet<EvaluationFormLink> EvaluationFormLinks => Set<EvaluationFormLink>();
     public DbSet<RiskScore> RiskScores => Set<RiskScore>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
+    public DbSet<MetricDefinition> MetricDefinitions => Set<MetricDefinition>();
     public DbSet<Coach> Coaches => Set<Coach>();
     public DbSet<Payment> Payments => Set<Payment>();
 
@@ -92,6 +94,9 @@ public class BKeeperDbContext(DbContextOptions<BKeeperDbContext> options, ICurre
         builder.Entity<EvaluationForm>().Property(f => f.Schema).HasJsonConversion();
         builder.Entity<EvaluationResponse>().Property(r => r.Answers).HasJsonConversion();
         builder.Entity<EvaluationResponse>().Property(r => r.Scores).HasJsonConversion();
+
+        builder.Entity<MetricDefinition>().HasIndex(m => m.Key).IsUnique();
+        builder.Entity<MetricDefinition>().HasData(MetricDefinitionCatalog.All);
 
         ApplyBoxQueryFilters(builder);
     }
