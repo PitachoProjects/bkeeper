@@ -72,7 +72,7 @@ public class BKeeperDbContext(DbContextOptions<BKeeperDbContext> options, ICurre
         builder.Entity<MemberConsent>().HasIndex(c => new { c.BoxId, c.MemberId, c.Channel }).IsUnique();
         builder.Entity<EvaluationForm>().HasIndex(f => new { f.BoxId, f.Key }).IsUnique();
         builder.Entity<EvaluationFormLink>().HasIndex(l => l.Token).IsUnique();
-        builder.Entity<RiskScore>().HasIndex(r => new { r.BoxId, r.MemberId, r.SnapshotWeek }).IsUnique();
+        builder.Entity<RiskScore>().HasIndex(r => new { r.BoxId, r.MemberId, r.SnapshotWeek, r.ModelType }).IsUnique();
         builder.Entity<RiskScore>().Property(r => r.TopReasons).HasJsonConversion();
 
         builder.Entity<MemberWeek>().Property(w => w.VisitsByWindow).HasJsonConversion();
