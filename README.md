@@ -39,6 +39,8 @@ curl -X POST http://localhost:5080/rules/run              -H "Authorization: Bea
 curl -X POST http://localhost:5080/alerts/escalate/run     -H "Authorization: Bearer <token>"  # SLA escalation, auto-resolve, auto-expire
 curl -X POST http://localhost:5080/outreach/dispatch       -H "Authorization: Bearer <token>"  # send Queued messages (outside quiet hours)
 curl -X POST http://localhost:5080/risk-scores/run         -H "Authorization: Bearer <token>"  # weekly ML scoring (shadow mode) — Manager/Owner only
+curl -X POST http://localhost:5080/health-score/run         -H "Authorization: Bearer <token>"  # recompute the Athlete Health Score for every active member
+curl -X POST http://localhost:5080/coaches/backfill         -H "Authorization: Bearer <token>"  # link any still-unlinked ClassSession.CoachName values to Coach records — Owner/Manager only
 curl -X POST http://localhost:5080/gdpr/anonymize/run       -H "Authorization: Bearer <token>"  # anonymize members cancelled 24+ months ago
 ```
 
@@ -53,13 +55,34 @@ A negative or health-flagged answer creates an alert automatically.
 
 Churn risk (plan §8, R13) shows up on the member page as a "Churn risk" card, visible to Manager/Owner
 only — it's **shadow mode**: scores are computed and stored weekly (or on demand via the endpoint
-above) but never create an alert. The model was trained on synthetic data (see
-[docs/DECISIONS.md#d23](docs/DECISIONS.md)) since no real export exists yet — treat the risk numbers
-as a pipeline demo, not a real prediction.
+above) but never create an alert. Two models run side by side: the original LightGBM ensemble
+(Stage C, shown by default) and a standalone, calibrated logistic regression baseline (Stage B —
+`GET /risk-scores/members/{id}/compare`, coefficients instead of SHAP for interpretability; see
+[docs/DECISIONS.md#d27](docs/DECISIONS.md) and `docs/RUNBOOK.md`'s "Comparing the two churn models"
+section). Both were trained on synthetic data (see [docs/DECISIONS.md#d23](docs/DECISIONS.md)) since
+no real export exists yet — treat the risk numbers as a pipeline demo, not a real prediction.
 
 The **Dashboards** page has four tabs (retention, alert ops, workouts, my week) — cohort retention
 curves, SLA compliance, save rate, holdout-vs-treated, window×type heatmap, class fill, and a coach's
-open-alerts-this-week view. Retention cohorts export as CSV from the page.
+open-alerts-this-week view. Retention cohorts export as CSV from the page. The retention tab can be
+filtered by coach and, for Manager/Owner, has a click-triggered "Get AI summary" card that turns the
+same numbers into a plain-language narrative via Anthropic's Messages API (see "Turning on AI
+retention summaries" in [docs/RUNBOOK.md](docs/RUNBOOK.md) — off by default, never invents a number
+not already on the page). Most stats across the dashboard have an "ⓘ What does this mean?" toggle
+backed by a formal metric-definition catalog (`GET /metric-definitions`) so the definition, formula,
+and limitations of a number are one click away instead of tribal knowledge (see
+[docs/DECISIONS.md#d28](docs/DECISIONS.md)).
+
+The **Athlete Health Score** (Settings → Health score weights) is a configurable, versioned composite
+of attendance, consistency, booking behaviour, progress, and engagement — shown on each member's page
+with a full weight/score/contribution breakdown, distinct from the shadow-mode ML churn risk score
+below. Re-weighting creates a new version rather than rewriting history, so a score computed
+yesterday still shows what it showed (see [docs/DECISIONS.md#d29](docs/DECISIONS.md)).
+
+**Coaches** get their own page (promoted from the free-text `ClassSession.CoachName` field, with a
+one-time backfill migration linking existing sessions) and a coach filter on the retention dashboard
+for coach-level drill-down. **Payments** are recorded per member (Owner/Manager/Reception) on the
+member page — data-model-only, no payment gateway integration.
 
 GDPR: `GET /members/{id}/gdpr/export` returns every piece of personal data held on a member as one
 JSON bundle; `POST /members/{id}/gdpr/anonymize` scrubs their PII immediately (right-to-be-forgotten).
@@ -122,15 +145,25 @@ BKeeper/
   docs/            PLAN.md, DECISIONS.md, OPEN_QUESTIONS.md, RUNBOOK.md
   src/
     BKeeper.Domain/         entities, enums, rule contracts — no dependencies
-    BKeeper.Application/    metrics, rule implementations, alert orchestration, import contracts
-    BKeeper.Infrastructure/ EF Core, Postgres, Excel import, JWT auth, Hangfire pipeline
-    BKeeper.Api/            REST API (controllers, auth)
-    BKeeper.Worker/         Hangfire host (daily rule run)
-    BKeeper.Tests.Unit/     xunit — rules, metrics, alert orchestration, workout classifier
-  web/             Vue 3 SPA (its own Dockerfile — deployable independently)
+    BKeeper.Application/    metrics, health scoring, metric-definition catalog, rule implementations,
+                             alert orchestration, coach backfill, retention-overview service, import
+                             contracts, LLM narrative-generator interface
+    BKeeper.Infrastructure/ EF Core, Postgres, Excel import, JWT auth, Hangfire pipeline, Anthropic
+                             narrative-generator implementation
+    BKeeper.Api/            REST API (controllers, auth) — members, coaches, payments, health score,
+                             metric definitions, risk scores, insights narrative, dashboards, alerts
+    BKeeper.Worker/         Hangfire host (daily rule run, health score, ML scoring, GDPR sweep, …)
+    BKeeper.Tests.Unit/     xunit — rules, metrics, health scoring, alert orchestration, workout
+                             classifier, coach backfill, narrative-layer guardrails
+  web/             Vue 3 SPA (its own Dockerfile — deployable independently). Sidebar nav is grouped
+                   by workflow (Dashboard / Athletes / Classes / Insights / Reports / Configuration)
+                   rather than one entry per page — see `src/App.vue`.
   ml/              Python FastAPI scoring service (its own Dockerfile — deployable independently)
-    app/           features.py (single source of truth), synthetic.py, train.py, serve.py, explain.py
-    tests/         pytest — feature fixtures, no-leakage checks
+    app/           features.py (single source of truth), synthetic.py, train.py (LightGBM ensemble,
+                    Stage C), logistic.py (logistic regression baseline, Stage B), metrics.py (shared
+                    evaluation), serve.py, explain.py
+    backtest_compare.py     side-by-side metrics for both churn models on the same split
+    tests/         pytest — feature fixtures, no-leakage checks, both models' metrics/serving
   scripts/         backup.sh / restore.sh — Postgres backup/restore drill
   infra/docker/    Dockerfiles for the API and Worker (repo-root build context)
   docker-compose.yml
