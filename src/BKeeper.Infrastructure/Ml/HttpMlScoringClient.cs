@@ -16,7 +16,13 @@ public class MlServiceOptions
 
 public class HttpMlScoringClient(HttpClient http, IOptions<MlServiceOptions> options, ILogger<HttpMlScoringClient> logger) : IMlScoringClient
 {
-    public async Task<IReadOnlyList<MlMemberScoreResult>> ScoreAsync(IReadOnlyList<MlMemberScoreRequest> members, CancellationToken ct = default)
+    public Task<IReadOnlyList<MlMemberScoreResult>> ScoreAsync(IReadOnlyList<MlMemberScoreRequest> members, CancellationToken ct = default) =>
+        PostAsync("/score", MlModelTypes.LightGbmEnsemble, members, ct);
+
+    public Task<IReadOnlyList<MlMemberScoreResult>> ScoreLogisticAsync(IReadOnlyList<MlMemberScoreRequest> members, CancellationToken ct = default) =>
+        PostAsync("/score/logistic", MlModelTypes.LogisticRegression, members, ct);
+
+    private async Task<IReadOnlyList<MlMemberScoreResult>> PostAsync(string path, string modelType, IReadOnlyList<MlMemberScoreRequest> members, CancellationToken ct)
     {
         if (members.Count == 0) return [];
 
@@ -25,7 +31,7 @@ public class HttpMlScoringClient(HttpClient http, IOptions<MlServiceOptions> opt
             m.Facts.Select(f => new BookingFactDto(f.SessionDate, f.Status, f.BookedAt, f.Window, f.TypeWeights)).ToList()
         )).ToList());
 
-        using var httpRequest = new HttpRequestMessage(HttpMethod.Post, $"{options.Value.BaseUrl.TrimEnd('/')}/score")
+        using var httpRequest = new HttpRequestMessage(HttpMethod.Post, $"{options.Value.BaseUrl.TrimEnd('/')}{path}")
         {
             Content = JsonContent.Create(request),
         };
@@ -36,14 +42,14 @@ public class HttpMlScoringClient(HttpClient http, IOptions<MlServiceOptions> opt
             var response = await http.SendAsync(httpRequest, ct);
             response.EnsureSuccessStatusCode();
             var body = await response.Content.ReadFromJsonAsync<ScoreResponseDto>(cancellationToken: ct);
-            return body?.Results.Select(r => new MlMemberScoreResult(Guid.Parse(r.MemberId), r.PChurn28d, r.Band, r.TopReasons, r.ModelVersion)).ToList()
+            return body?.Results.Select(r => new MlMemberScoreResult(Guid.Parse(r.MemberId), r.PChurn28d, r.Band, r.TopReasons, r.ModelVersion, r.ModelType ?? modelType)).ToList()
                 ?? [];
         }
         catch (Exception ex)
         {
             // ponytail: shadow mode — a scoring outage should never break the nightly pipeline.
             // Upgrade path: alert ops if this keeps failing across runs.
-            logger.LogWarning(ex, "ML scoring service call failed; skipping this run's risk scores");
+            logger.LogWarning(ex, "ML scoring service call to {Path} failed; skipping this run's {ModelType} risk scores", path, modelType);
             return [];
         }
     }
@@ -71,5 +77,6 @@ public class HttpMlScoringClient(HttpClient http, IOptions<MlServiceOptions> opt
         [property: JsonPropertyName("p_churn_28d")] double PChurn28d,
         [property: JsonPropertyName("band")] string Band,
         [property: JsonPropertyName("top_reasons")] List<string> TopReasons,
-        [property: JsonPropertyName("model_version")] string ModelVersion);
+        [property: JsonPropertyName("model_version")] string ModelVersion,
+        [property: JsonPropertyName("model_type")] string? ModelType = null);
 }
