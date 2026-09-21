@@ -53,9 +53,25 @@ interface ClassFill {
   window: string
   avgFillPct: number
 }
+interface RecentSession {
+  date: string
+  classType: string
+  workoutTitle: string | null
+  workoutDescription: string | null
+  tag: string
+  attendedCount: number
+  coachName: string | null
+}
 interface WorkoutMix {
   windowTypeHeatmap: HeatmapCell[]
   classFillBySlot: ClassFill[]
+  recentSessions: RecentSession[]
+}
+
+interface CoachItem {
+  id: string
+  name: string
+  status: string
 }
 
 interface MyWeekAlert {
@@ -98,6 +114,13 @@ const retention = ref<RetentionOverview | null>(null)
 const alertOps = ref<AlertOperations | null>(null)
 const workouts = ref<WorkoutMix | null>(null)
 const myWeek = ref<MyWeek | null>(null)
+const coaches = ref<CoachItem[]>([])
+const coachFilter = ref('')
+
+async function loadRetention() {
+  const query = coachFilter.value ? `?coachId=${coachFilter.value}` : ''
+  retention.value = await api.get(`/dashboards/retention${query}`)
+}
 
 const aiConfigured = ref<boolean | null>(null)
 const narrative = ref<NarrativeResponse | null>(null)
@@ -107,9 +130,9 @@ const narrativeError = ref<string | null>(null)
 async function loadTab() {
   loading.value = true
   try {
-    if (tab.value === 'retention' && !retention.value) {
-      retention.value = await api.get('/dashboards/retention')
-      checkAiConfigured()
+    if (tab.value === 'retention') {
+      if (coaches.value.length === 0) coaches.value = await api.get<CoachItem[]>('/coaches?status=Active')
+      await loadRetention()
     }
     if (tab.value === 'alertOps' && !alertOps.value) alertOps.value = await api.get('/dashboards/alerts')
     if (tab.value === 'workouts' && !workouts.value) workouts.value = await api.get('/dashboards/workouts')
@@ -119,6 +142,12 @@ async function loadTab() {
   }
 }
 
+async function onCoachFilterChange() {
+  loading.value = true
+  try {
+    await loadRetention()
+  } finally {
+    loading.value = false
 // Cheap "is the feature turned on" check — never triggers a paid LLM call, so it's safe to run
 // automatically when the retention tab first opens (unlike getAiSummary, which is user-triggered only).
 async function checkAiConfigured() {
@@ -171,6 +200,13 @@ onMounted(() => {
     <p v-if="loading">Loading…</p>
 
     <template v-else-if="tab === 'retention' && retention">
+      <div class="coach-filter">
+        <label>{{ t('dashboards.retention.coachFilter') }}</label>
+        <select v-model="coachFilter" @change="onCoachFilterChange">
+          <option value="">{{ t('dashboards.retention.allCoaches') }}</option>
+          <option v-for="c in coaches" :key="c.id" :value="c.id">{{ c.name }}</option>
+        </select>
+      </div>
       <div class="stat-row">
         <div class="stat"><span class="stat-value">{{ retention.activeCount }}</span><span class="stat-label">{{ t('dashboards.retention.active') }}</span></div>
         <div class="stat"><span class="stat-value">{{ retention.newThisMonth }}</span><span class="stat-label">{{ t('dashboards.retention.newThisMonth') }}</span></div>
@@ -301,6 +337,32 @@ onMounted(() => {
           </tbody>
         </table>
       </section>
+
+      <section class="card">
+        <h2>{{ t('dashboards.workouts.recentTitle') }}</h2>
+        <p class="hint">{{ t('dashboards.workouts.recentHint') }}</p>
+        <table>
+          <thead>
+            <tr>
+              <th>{{ t('dashboards.workouts.date') }}</th>
+              <th>{{ t('dashboards.workouts.classType') }}</th>
+              <th>{{ t('dashboards.workouts.workout') }}</th>
+              <th>{{ t('dashboards.workouts.coach') }}</th>
+              <th>{{ t('dashboards.workouts.attended') }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="(s, i) in workouts.recentSessions" :key="i">
+              <td>{{ new Date(s.date).toLocaleDateString() }}</td>
+              <td>{{ s.classType }}</td>
+              <td>{{ s.workoutTitle ?? '—' }}</td>
+              <td>{{ s.coachName ?? '—' }}</td>
+              <td>{{ s.attendedCount }}</td>
+            </tr>
+            <tr v-if="workouts.recentSessions.length === 0"><td colspan="5" class="empty">{{ t('dashboards.workouts.recentEmpty') }}</td></tr>
+          </tbody>
+        </table>
+      </section>
     </template>
 
     <template v-else-if="tab === 'myWeek' && myWeek">
@@ -333,6 +395,14 @@ onMounted(() => {
   display: flex;
   gap: 0.5rem;
   margin-bottom: 1.25rem;
+}
+.coach-filter {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
 }
 .stat-row {
   display: flex;

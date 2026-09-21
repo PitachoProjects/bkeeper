@@ -40,3 +40,10 @@ public enum GoalStatus { Active, Achieved, Paused, Dropped }
 public enum GoalProgressSource { Evaluation, BenchmarkRetest, CoachEntry, Automatic }
 
 public enum EvaluationQuestionType { Scale1To5, Nps0To10, Text, YesNo, MultiSelect }
+
+public enum CoachStatus { Active, Inactive }
+
+/// <summary>Record-keeping only — no payment gateway integration (see Payment's doc comment).</summary>
+public enum PaymentStatus { Completed, Refunded, Failed }
+
+public enum PaymentMethod { Card, Cash, Transfer, Other }

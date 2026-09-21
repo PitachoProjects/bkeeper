@@ -3,6 +3,7 @@ using System;
 using BKeeper.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace BKeeper.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(BKeeperDbContext))]
-    partial class BKeeperDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260921114148_AddCoachesAndBackfillFromSessions")]
+    partial class AddCoachesAndBackfillFromSessions
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -991,57 +994,6 @@ namespace BKeeper.Infrastructure.Persistence.Migrations
                     b.ToTable("Outreaches");
                 });
 
-            modelBuilder.Entity("BKeeper.Domain.Entities.Payment", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<decimal>("Amount")
-                        .HasColumnType("numeric");
-
-                    b.Property<Guid>("BoxId")
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("Currency")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<Guid>("MemberId")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid?>("MembershipId")
-                        .HasColumnType("uuid");
-
-                    b.Property<int>("Method")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("Notes")
-                        .HasColumnType("text");
-
-                    b.Property<DateOnly>("PaymentDate")
-                        .HasColumnType("date");
-
-                    b.Property<int>("Status")
-                        .HasColumnType("integer");
-
-                    b.Property<DateTimeOffset>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("MemberId");
-
-                    b.HasIndex("MembershipId");
-
-                    b.HasIndex("BoxId", "MemberId");
-
-                    b.ToTable("Payments");
-                });
-
             modelBuilder.Entity("BKeeper.Domain.Entities.RiskScore", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1060,10 +1012,6 @@ namespace BKeeper.Infrastructure.Persistence.Migrations
 
                     b.Property<Guid>("MemberId")
                         .HasColumnType("uuid");
-
-                    b.Property<string>("ModelType")
-                        .IsRequired()
-                        .HasColumnType("text");
 
                     b.Property<string>("ModelVersion")
                         .IsRequired()
@@ -1084,7 +1032,7 @@ namespace BKeeper.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("BoxId", "MemberId", "SnapshotWeek", "ModelType")
+                    b.HasIndex("BoxId", "MemberId", "SnapshotWeek")
                         .IsUnique();
 
                     b.ToTable("RiskScores");
@@ -1557,24 +1505,6 @@ namespace BKeeper.Infrastructure.Persistence.Migrations
                         .IsRequired();
 
                     b.Navigation("Member");
-                });
-
-            modelBuilder.Entity("BKeeper.Domain.Entities.Payment", b =>
-                {
-                    b.HasOne("BKeeper.Domain.Entities.Member", "Member")
-                        .WithMany()
-                        .HasForeignKey("MemberId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("BKeeper.Domain.Entities.Membership", "Membership")
-                        .WithMany()
-                        .HasForeignKey("MembershipId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.Navigation("Member");
-
-                    b.Navigation("Membership");
                 });
 
             modelBuilder.Entity("BKeeper.Domain.Entities.WorkoutTag", b =>

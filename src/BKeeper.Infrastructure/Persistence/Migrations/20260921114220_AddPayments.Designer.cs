@@ -3,6 +3,7 @@ using System;
 using BKeeper.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace BKeeper.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(BKeeperDbContext))]
-    partial class BKeeperDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260921114220_AddPayments")]
+    partial class AddPayments
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1061,10 +1064,6 @@ namespace BKeeper.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("MemberId")
                         .HasColumnType("uuid");
 
-                    b.Property<string>("ModelType")
-                        .IsRequired()
-                        .HasColumnType("text");
-
                     b.Property<string>("ModelVersion")
                         .IsRequired()
                         .HasColumnType("text");
@@ -1084,7 +1083,7 @@ namespace BKeeper.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("BoxId", "MemberId", "SnapshotWeek", "ModelType")
+                    b.HasIndex("BoxId", "MemberId", "SnapshotWeek")
                         .IsUnique();
 
                     b.ToTable("RiskScores");
