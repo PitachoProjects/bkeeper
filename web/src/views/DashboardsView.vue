@@ -6,6 +6,8 @@ import { severityLabel } from '@/lib/labels'
 import { useAuthStore } from '@/stores/auth'
 
 const { t } = useI18n()
+const route = useRoute()
+const router = useRouter()
 const authStore = useAuthStore()
 const isManagerOrOwner = computed(() => authStore.role === 'Manager' || authStore.role === 'Owner')
 
@@ -78,8 +80,19 @@ interface NarrativeResponse {
 }
 
 const TABS = ['retention', 'alertOps', 'workouts', 'myWeek'] as const
-const tab = ref<(typeof TABS)[number]>('retention')
+type TabId = (typeof TABS)[number]
+
+// URL segments (readable, stable) mapped to the internal tab ids above (kept as-is to
+// avoid touching every `tab === '...'` check below).
+const ROUTE_TO_TAB: Record<string, TabId> = { retention: 'retention', attendance: 'workouts', interventions: 'alertOps', 'my-week': 'myWeek' }
+const TAB_TO_ROUTE: Record<TabId, string> = { retention: 'retention', workouts: 'attendance', alertOps: 'interventions', myWeek: 'my-week' }
+
+const tab = computed<TabId>(() => ROUTE_TO_TAB[route.params.tab as string] ?? 'retention')
 const loading = ref(true)
+
+function selectTab(tabId: TabId) {
+  router.push(`/dashboard/${TAB_TO_ROUTE[tabId]}`)
+}
 
 const retention = ref<RetentionOverview | null>(null)
 const alertOps = ref<AlertOperations | null>(null)
@@ -142,14 +155,17 @@ function exportRetentionCsv() {
 }
 
 watch(tab, loadTab)
-onMounted(loadTab)
+onMounted(() => {
+  if (!(route.params.tab as string in ROUTE_TO_TAB)) router.replace(`/dashboard/${TAB_TO_ROUTE[tab.value]}`)
+  loadTab()
+})
 </script>
 
 <template>
   <div>
     <h1>{{ t('dashboards.title') }}</h1>
     <div class="tabs">
-      <button v-for="tabId in TABS" :key="tabId" :class="{ ghost: tab !== tabId }" @click="tab = tabId">{{ t(`dashboards.tabs.${tabId}`) }}</button>
+      <button v-for="tabId in TABS" :key="tabId" :class="{ ghost: tab !== tabId }" @click="selectTab(tabId)">{{ t(`dashboards.tabs.${tabId}`) }}</button>
     </div>
 
     <p v-if="loading">Loading…</p>

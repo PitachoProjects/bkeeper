@@ -20,7 +20,7 @@ async function submit() {
   try {
     const data = await api.post<LoginResponse>('/auth/login', { email: email.value, password: password.value })
     auth.setSession(data)
-    router.push({ name: 'members' })
+    router.push('/')
   } catch (e) {
     error.value = e instanceof ApiError ? e.message : t('login.failed')
   } finally {
