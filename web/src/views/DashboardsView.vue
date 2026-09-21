@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useRoute, useRouter } from 'vue-router'
 import { api, ApiError } from '@/lib/api'
 import { severityLabel } from '@/lib/labels'
 import ExplainThis from '@/components/ExplainThis.vue'
@@ -134,6 +135,7 @@ async function loadTab() {
     if (tab.value === 'retention') {
       if (coaches.value.length === 0) coaches.value = await api.get<CoachItem[]>('/coaches?status=Active')
       await loadRetention()
+      await checkAiConfigured()
     }
     if (tab.value === 'alertOps' && !alertOps.value) alertOps.value = await api.get('/dashboards/alerts')
     if (tab.value === 'workouts' && !workouts.value) workouts.value = await api.get('/dashboards/workouts')
@@ -149,6 +151,9 @@ async function onCoachFilterChange() {
     await loadRetention()
   } finally {
     loading.value = false
+  }
+}
+
 // Cheap "is the feature turned on" check — never triggers a paid LLM call, so it's safe to run
 // automatically when the retention tab first opens (unlike getAiSummary, which is user-triggered only).
 async function checkAiConfigured() {

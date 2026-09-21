@@ -56,8 +56,9 @@ const groups = computed<NavGroup[]>(() => [
     items: [
       // ClassSession/Booking data only exists today inside the workouts dashboard tab
       // (heatmap, class fill, recent sessions) — no dedicated Classes page/API yet, so this
-      // reuses that tab rather than inventing capacity/coach-management screens with no backend.
+      // reuses that tab rather than inventing a capacity screen with no backend.
       { to: '/dashboard/attendance', label: t('nav.classes.analytics') },
+      { to: '/coaches', label: t('nav.classes.coaches') },
     ],
   },
   {
@@ -112,12 +113,21 @@ function toggleGroup(key: string) {
     <aside class="sidebar">
       <div class="brand">BKeeper</div>
       <nav>
-        <RouterLink to="/members">{{ t('nav.members') }}</RouterLink>
-        <RouterLink to="/alerts">{{ t('nav.alerts') }}</RouterLink>
-        <RouterLink to="/dashboards">{{ t('nav.dashboards') }}</RouterLink>
-        <RouterLink to="/coaches">{{ t('nav.coaches') }}</RouterLink>
-        <RouterLink to="/import">{{ t('nav.import') }}</RouterLink>
-        <RouterLink to="/settings">{{ t('nav.settings') }}</RouterLink>
+        <div v-for="group in groups" :key="group.key" class="nav-group">
+          <button
+            type="button"
+            class="nav-group-header"
+            :class="{ active: activeGroupKey === group.key }"
+            :aria-expanded="isExpanded(group.key)"
+            @click="toggleGroup(group.key)"
+          >
+            <span>{{ group.label }}</span>
+            <span class="chevron" :class="{ open: isExpanded(group.key) }">›</span>
+          </button>
+          <div v-show="isExpanded(group.key)" class="nav-group-items">
+            <RouterLink v-for="item in group.items" :key="item.to" :to="item.to">{{ item.label }}</RouterLink>
+          </div>
+        </div>
       </nav>
       <div class="theme-switch" role="group" aria-label="Theme">
         <button :class="{ active: theme.mode === 'light' }" @click="theme.setMode('light')">{{ t('theme.light') }}</button>

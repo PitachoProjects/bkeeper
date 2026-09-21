@@ -29,9 +29,13 @@ const router = createRouter({
 
     { path: '/alerts', name: 'alerts', component: () => import('@/views/AlertsInboxView.vue') },
     { path: '/import', name: 'import', component: () => import('@/views/ImportView.vue') },
-    { path: '/dashboards', name: 'dashboards', component: () => import('@/views/DashboardsView.vue') },
     { path: '/coaches', name: 'coaches', component: () => import('@/views/CoachesListView.vue') },
-    { path: '/settings', name: 'settings', component: () => import('@/views/SettingsView.vue') },
+
+    // Configuration — renamed/relocated Settings. Health Score config, the Metric registry
+    // editor, and Coach/Payment settings from other branches add sibling routes here.
+    { path: '/configuration', redirect: '/configuration/general' },
+    { path: '/configuration/general', name: 'configuration-general', component: () => import('@/views/SettingsView.vue') },
+    { path: '/settings', redirect: '/configuration/general' },
   ],
 })
 
