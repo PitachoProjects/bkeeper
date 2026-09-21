@@ -4,10 +4,15 @@ on:
   push:
     branches:
       - master
+    paths:
+      - 'web/**'
+      - '.github/workflows/azure-static-web-apps-proud-desert-0db9c9403.yml'
   pull_request:
     types: [opened, synchronize, reopened, closed]
     branches:
       - master
+    paths:
+      - 'web/**'
 
 jobs:
   build_and_deploy_job:
@@ -22,6 +27,8 @@ jobs:
       - name: Build And Deploy
         id: builddeploy
         uses: Azure/static-web-apps-deploy@v1
+        env:
+          VITE_API_URL: https://bkeeper-api-gqfub3ebf5gyeshr.westeurope-01.azurewebsites.net
         with:
           azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_PROUD_DESERT_0DB9C9403 }}
           repo_token: ${{ secrets.GITHUB_TOKEN }} # Used for Github integrations (i.e. PR comments)
