@@ -1,5 +1,6 @@
 using System.Reflection;
 using BKeeper.Application.Abstractions;
+using BKeeper.Application.Metrics;
 using BKeeper.Domain.Common;
 using BKeeper.Domain.Entities;
 using BKeeper.Infrastructure.Identity;
@@ -45,6 +46,9 @@ public class BKeeperDbContext(DbContextOptions<BKeeperDbContext> options, ICurre
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
     public DbSet<HealthScoreConfiguration> HealthScoreConfigurations => Set<HealthScoreConfiguration>();
     public DbSet<HealthScore> HealthScores => Set<HealthScore>();
+    public DbSet<MetricDefinition> MetricDefinitions => Set<MetricDefinition>();
+    public DbSet<Coach> Coaches => Set<Coach>();
+    public DbSet<Payment> Payments => Set<Payment>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -52,6 +56,8 @@ public class BKeeperDbContext(DbContextOptions<BKeeperDbContext> options, ICurre
 
         builder.Entity<Member>().HasIndex(m => new { m.BoxId, m.ExternalId });
         builder.Entity<ClassSession>().HasIndex(s => new { s.BoxId, s.ExternalId });
+        builder.Entity<Coach>().HasIndex(c => new { c.BoxId, c.Name });
+        builder.Entity<Payment>().HasIndex(p => new { p.BoxId, p.MemberId });
         builder.Entity<Booking>().HasIndex(b => new { b.BoxId, b.ExternalId });
         builder.Entity<MembershipFreeze>().HasIndex(f => new { f.BoxId, f.ExternalId });
         builder.Entity<Goal>().HasIndex(g => new { g.BoxId, g.ExternalId });
@@ -67,6 +73,9 @@ public class BKeeperDbContext(DbContextOptions<BKeeperDbContext> options, ICurre
         builder.Entity<Alert>().HasMany(a => a.Events).WithOne(e => e.Alert).HasForeignKey(e => e.AlertId);
         builder.Entity<ImportRun>().HasMany(r => r.RowErrors).WithOne(e => e.ImportRun).HasForeignKey(e => e.ImportRunId);
         builder.Entity<Outreach>().HasOne(o => o.Member).WithMany().HasForeignKey(o => o.MemberId);
+        builder.Entity<ClassSession>().HasOne(s => s.Coach).WithMany().HasForeignKey(s => s.CoachId).OnDelete(DeleteBehavior.SetNull);
+        builder.Entity<Payment>().HasOne(p => p.Member).WithMany().HasForeignKey(p => p.MemberId);
+        builder.Entity<Payment>().HasOne(p => p.Membership).WithMany().HasForeignKey(p => p.MembershipId).OnDelete(DeleteBehavior.SetNull);
         builder.Entity<Goal>().HasMany(g => g.Progress).WithOne(p => p.Goal).HasForeignKey(p => p.GoalId);
         builder.Entity<EvaluationForm>().HasMany(f => f.Responses).WithOne(r => r.Form).HasForeignKey(r => r.FormId);
         builder.Entity<EvaluationResponse>().HasOne(r => r.Member).WithMany().HasForeignKey(r => r.MemberId);
@@ -74,7 +83,7 @@ public class BKeeperDbContext(DbContextOptions<BKeeperDbContext> options, ICurre
         builder.Entity<MemberConsent>().HasIndex(c => new { c.BoxId, c.MemberId, c.Channel }).IsUnique();
         builder.Entity<EvaluationForm>().HasIndex(f => new { f.BoxId, f.Key }).IsUnique();
         builder.Entity<EvaluationFormLink>().HasIndex(l => l.Token).IsUnique();
-        builder.Entity<RiskScore>().HasIndex(r => new { r.BoxId, r.MemberId, r.SnapshotWeek }).IsUnique();
+        builder.Entity<RiskScore>().HasIndex(r => new { r.BoxId, r.MemberId, r.SnapshotWeek, r.ModelType }).IsUnique();
         builder.Entity<RiskScore>().Property(r => r.TopReasons).HasJsonConversion();
 
         builder.Entity<HealthScoreConfiguration>().HasIndex(c => new { c.BoxId, c.Version }).IsUnique();
@@ -92,6 +101,9 @@ public class BKeeperDbContext(DbContextOptions<BKeeperDbContext> options, ICurre
         builder.Entity<EvaluationForm>().Property(f => f.Schema).HasJsonConversion();
         builder.Entity<EvaluationResponse>().Property(r => r.Answers).HasJsonConversion();
         builder.Entity<EvaluationResponse>().Property(r => r.Scores).HasJsonConversion();
+
+        builder.Entity<MetricDefinition>().HasIndex(m => m.Key).IsUnique();
+        builder.Entity<MetricDefinition>().HasData(MetricDefinitionCatalog.All);
 
         ApplyBoxQueryFilters(builder);
     }

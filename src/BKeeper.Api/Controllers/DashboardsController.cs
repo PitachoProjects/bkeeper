@@ -10,12 +10,6 @@ using Microsoft.EntityFrameworkCore;
 
 namespace BKeeper.Api.Controllers;
 
-public record CohortCurveDto(string CohortLabel, int CohortSize, List<double?> RetentionByMonth);
-public record HistogramBucketDto(string Label, int Count);
-public record RetentionOverviewDto(
-    int ActiveCount, int NewThisMonth, int ChurnedThisMonth, int NetChange, double MonthlyChurnRatePct,
-    int LapsedCount, List<CohortCurveDto> Cohorts, List<HistogramBucketDto> TenureAtChurnHistogram);
-
 public record AlertOperationsDto(
     Dictionary<string, int> VolumeBySeverity, Dictionary<string, int> VolumeByFamily,
     double SlaComplianceRatePct, double? AvgTimeToClaimHours, Dictionary<string, int> OutcomesMix,
@@ -23,7 +17,7 @@ public record AlertOperationsDto(
 
 public record HeatmapCellDto(string Day, string Window, string Type, int Count);
 public record ClassFillDto(string ClassType, string Window, double AvgFillPct);
-public record RecentSessionDto(DateTimeOffset Date, string ClassType, string? WorkoutTitle, string? WorkoutDescription, string Tag, int AttendedCount);
+public record RecentSessionDto(DateTimeOffset Date, string ClassType, string? WorkoutTitle, string? WorkoutDescription, string Tag, int AttendedCount, string? CoachName);
 public record WorkoutMixDto(List<HeatmapCellDto> WindowTypeHeatmap, List<ClassFillDto> ClassFillBySlot, List<RecentSessionDto> RecentSessions);
 
 public record MyWeekAlertDto(Guid Id, Guid MemberId, string MemberName, string Severity, string Status, DateTimeOffset DueAt);
@@ -32,22 +26,35 @@ public record MyWeekDto(List<MyWeekAlertDto> OpenAlerts, int DueThisWeekCount, i
 [ApiController]
 [Route("dashboards")]
 [Authorize]
-public class DashboardsController(BKeeperDbContext db) : ControllerBase
+public class DashboardsController(BKeeperDbContext db, IRetentionOverviewService retentionOverviewService) : ControllerBase
 {
-    /// <summary>Plan §9: active/new/churned/net/monthly-churn, cohort retention curves, tenure-at-churn histogram.</summary>
+    /// <summary>Plan §9: active/new/churned/net/monthly-churn, cohort retention curves, tenure-at-churn histogram.
+    /// <paramref name="coachId"/> is an additive drill-down (not in the original plan): when set, every
+    /// figure is restricted to members who attended that coach's sessions — the unfiltered box-wide
+    /// overview (no coachId) is unchanged.</summary>
     [HttpGet("retention")]
-    public async Task<ActionResult<RetentionOverviewDto>> Retention() => Ok(await BuildRetentionOverviewAsync());
+    public async Task<ActionResult<RetentionOverviewDto>> Retention([FromQuery] Guid? coachId) => Ok(await BuildRetentionOverviewAsync(coachId));
 
     // ponytail-caught bug: `(await Retention()).Value` is always null when Retention() returns via
     // `Ok(x)` — ActionResult<T>.Value only populates through the implicit T->ActionResult<T>
     // conversion, and Ok() returns a plain ActionResult, so the CSV export always 404'd. Split the
     // data-building out so both callers can get the actual DTO.
-    private async Task<RetentionOverviewDto> BuildRetentionOverviewAsync()
+    private async Task<RetentionOverviewDto> BuildRetentionOverviewAsync(Guid? coachId = null)
     {
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
         var monthStart = new DateOnly(today.Year, today.Month, 1);
 
-        var members = await db.Members.Select(m => new { m.JoinDate, m.CancelDate, m.Status }).ToListAsync();
+        HashSet<Guid>? coachMemberIds = null;
+        if (coachId.HasValue)
+        {
+            var attendances = await db.Bookings.Where(b => b.Status == BookingStatus.Attended)
+                .Join(db.ClassSessions.Where(s => s.CoachId != null), b => b.SessionId, s => s.Id, (b, s) => new CoachSessionAttendance(s.CoachId!.Value, b.MemberId))
+                .ToListAsync();
+            coachMemberIds = CoachAttendanceFilter.MembersForCoach(attendances, coachId.Value).ToHashSet();
+        }
+
+        var members = await db.Members.Select(m => new { m.Id, m.JoinDate, m.CancelDate, m.Status }).ToListAsync();
+        if (coachMemberIds is not null) members = members.Where(m => coachMemberIds.Contains(m.Id)).ToList();
 
         var activeCount = members.Count(m => m.Status == MemberStatus.Active);
         var newThisMonth = members.Count(m => m.JoinDate >= monthStart && m.JoinDate <= today);
@@ -62,7 +69,7 @@ public class DashboardsController(BKeeperDbContext db) : ControllerBase
             .Select(g => new { MemberId = g.Key, LastVisit = g.Max(x => x.StartsAt) })
             .ToListAsync();
         var lastVisitMap = lastVisitByMember.ToDictionary(x => x.MemberId, x => x.LastVisit);
-        var activeMemberIds = await db.Members.Where(m => m.Status == MemberStatus.Active).Select(m => m.Id).ToListAsync();
+        var activeMemberIds = members.Where(m => m.Status == MemberStatus.Active).Select(m => m.Id).ToList();
         var lapsedCount = activeMemberIds.Count(id =>
             !lastVisitMap.TryGetValue(id, out var last) || (today.DayNumber - DateOnly.FromDateTime(last.Date).DayNumber) >= 45);
 
@@ -168,13 +175,14 @@ public class DashboardsController(BKeeperDbContext db) : ControllerBase
             .Where(s => s.StartsAt >= since && s.WorkoutId != null)
             .OrderByDescending(s => s.StartsAt)
             .Take(20)
-            .Select(s => new { s.Id, s.StartsAt, s.ClassType, s.WorkoutId })
+            .Select(s => new { s.Id, s.StartsAt, s.ClassType, s.WorkoutId, s.CoachName, CoachLinkedName = s.Coach!.Name })
             .ToListAsync();
         var recentSessionDtos = recentSessions.Select(s =>
         {
             var workout = s.WorkoutId.HasValue ? workouts.GetValueOrDefault(s.WorkoutId.Value) : null;
             var tag = s.WorkoutId.HasValue && tagsByWorkout.TryGetValue(s.WorkoutId.Value, out var t) ? t.ToString() : "untagged";
-            return new RecentSessionDto(s.StartsAt, s.ClassType, workout?.Title, workout?.Description, tag, attendedCountMap.GetValueOrDefault(s.Id, 0));
+            var coachName = !string.IsNullOrEmpty(s.CoachLinkedName) ? s.CoachLinkedName : s.CoachName;
+            return new RecentSessionDto(s.StartsAt, s.ClassType, workout?.Title, workout?.Description, tag, attendedCountMap.GetValueOrDefault(s.Id, 0), coachName);
         }).ToList();
 
         return Ok(new WorkoutMixDto(heatmap, classFill, recentSessionDtos));
@@ -206,7 +214,7 @@ public class DashboardsController(BKeeperDbContext db) : ControllerBase
     [HttpGet("retention/export")]
     public async Task<IActionResult> ExportRetentionCsv()
     {
-        var overview = await BuildRetentionOverviewAsync();
+        var overview = await retentionOverviewService.BuildAsync();
 
         var sb = new StringBuilder();
         sb.AppendLine("cohort,cohort_size," + string.Join(",", Enumerable.Range(0, overview.Cohorts.FirstOrDefault()?.RetentionByMonth.Count ?? 0).Select(i => $"month_{i}")));

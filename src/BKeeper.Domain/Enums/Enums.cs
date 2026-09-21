@@ -43,3 +43,9 @@ public enum EvaluationQuestionType { Scale1To5, Nps0To10, Text, YesNo, MultiSele
 
 /// <summary>The five composite Health Score factors (product spec, scoped down to this codebase's data).</summary>
 public enum HealthScoreFactor { Attendance, Consistency, BookingBehaviour, Progress, Engagement }
+public enum CoachStatus { Active, Inactive }
+
+/// <summary>Record-keeping only — no payment gateway integration (see Payment's doc comment).</summary>
+public enum PaymentStatus { Completed, Refunded, Failed }
+
+public enum PaymentMethod { Card, Cash, Transfer, Other }

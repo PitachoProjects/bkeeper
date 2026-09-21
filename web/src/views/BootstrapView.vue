@@ -27,7 +27,7 @@ async function submit() {
       ownerPassword: ownerPassword.value,
     })
     auth.setSession(data)
-    router.push({ name: 'members' })
+    router.push('/')
   } catch (e) {
     error.value = e instanceof ApiError ? e.message : t('bootstrap.failed')
   } finally {

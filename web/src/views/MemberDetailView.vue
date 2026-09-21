@@ -109,14 +109,29 @@ interface WorkoutMixItem {
   count: number
 }
 
+interface PaymentItem {
+  id: string
+  memberId: string
+  membershipId: string | null
+  amount: number
+  currency: string
+  paymentDate: string
+  status: string
+  method: string
+  notes: string | null
+}
+
 const { t } = useI18n()
 const GOAL_CATEGORIES = ['Strength', 'Skill', 'BodyComposition', 'Endurance', 'CompetitionEvent', 'HealthRehab', 'Consistency', 'Social']
 const TIMELINE_FILTERS = ['note', 'Attended', 'NoShow', 'LateCancel']
+const PAYMENT_STATUSES = ['Completed', 'Refunded', 'Failed']
+const PAYMENT_METHODS = ['Card', 'Cash', 'Transfer', 'Other']
 
 const route = useRoute()
 const memberId = route.params.id as string
 const auth = useAuthStore()
 const canSeeRisk = computed(() => auth.role === 'Manager' || auth.role === 'Owner')
+const canSeePayments = computed(() => auth.role === 'Owner' || auth.role === 'Manager' || auth.role === 'Reception')
 
 const member = ref<MemberDetail | null>(null)
 const riskScore = ref<RiskScore | null>(null)
@@ -149,6 +164,9 @@ const progressGoalId = ref<string | null>(null)
 const progressValue = ref('')
 const progressDate = ref(new Date().toISOString().slice(0, 10))
 const sentFormLink = ref('')
+const payments = ref<PaymentItem[]>([])
+const showAddPayment = ref(false)
+const newPayment = ref({ amount: '', currency: 'EUR', paymentDate: new Date().toISOString().slice(0, 10), status: 'Completed', method: 'Card', notes: '' })
 const timelineFilter = ref('')
 const timelineFiltered = computed(() =>
   timelineFilter.value ? timeline.value.filter((t) => t.type === timelineFilter.value) : timeline.value,
@@ -174,6 +192,25 @@ async function load() {
     api.get<HealthScoreItem | null>(`/members/${memberId}/health-score`),
     api.get<HealthScoreItem[]>(`/members/${memberId}/health-score/history`),
   ])
+  if (canSeePayments.value) {
+    payments.value = await api.get<PaymentItem[]>(`/members/${memberId}/payments`)
+  }
+}
+
+async function addPayment() {
+  if (!newPayment.value.amount || Number(newPayment.value.amount) <= 0) return
+  const payment = await api.post<PaymentItem>(`/members/${memberId}/payments`, {
+    membershipId: null,
+    amount: Number(newPayment.value.amount),
+    currency: newPayment.value.currency || 'EUR',
+    paymentDate: newPayment.value.paymentDate,
+    status: newPayment.value.status,
+    method: newPayment.value.method,
+    notes: newPayment.value.notes || null,
+  })
+  payments.value = [payment, ...payments.value]
+  newPayment.value = { amount: '', currency: 'EUR', paymentDate: new Date().toISOString().slice(0, 10), status: 'Completed', method: 'Card', notes: '' }
+  showAddPayment.value = false
 }
 
 async function addGoal() {
@@ -414,6 +451,41 @@ onMounted(load)
       </ul>
     </section>
 
+    <section v-if="canSeePayments" class="card">
+      <div class="section-header">
+        <h2>{{ t('memberDetail.payments.title') }}</h2>
+        <button class="ghost" @click="showAddPayment = !showAddPayment">
+          {{ showAddPayment ? t('memberDetail.payments.cancel') : t('memberDetail.payments.addPayment') }}
+        </button>
+      </div>
+      <p class="hint">{{ t('memberDetail.payments.hint') }}</p>
+
+      <form v-if="showAddPayment" class="add-payment" @submit.prevent="addPayment">
+        <input v-model="newPayment.amount" type="number" step="0.01" min="0" :placeholder="t('memberDetail.payments.amountPlaceholder')" />
+        <input v-model="newPayment.currency" :placeholder="t('memberDetail.payments.currencyPlaceholder')" />
+        <input v-model="newPayment.paymentDate" type="date" />
+        <select v-model="newPayment.method">
+          <option v-for="m in PAYMENT_METHODS" :key="m" :value="m">{{ t(`memberDetail.payments.methods.${m}`) }}</option>
+        </select>
+        <select v-model="newPayment.status">
+          <option v-for="s in PAYMENT_STATUSES" :key="s" :value="s">{{ t(`memberDetail.payments.statuses.${s}`) }}</option>
+        </select>
+        <input v-model="newPayment.notes" :placeholder="t('memberDetail.payments.notesPlaceholder')" />
+        <button type="submit">{{ t('memberDetail.payments.save') }}</button>
+      </form>
+
+      <ul class="payments">
+        <li v-for="p in payments" :key="p.id">
+          <span class="text">{{ p.amount.toFixed(2) }} {{ p.currency }}</span>
+          <span class="status" :class="p.status.toLowerCase()">{{ t(`memberDetail.payments.statuses.${p.status}`) }}</span>
+          <span class="source">{{ t(`memberDetail.payments.methods.${p.method}`) }}</span>
+          <span v-if="p.notes" class="text">{{ p.notes }}</span>
+          <span class="date">{{ p.paymentDate }}</span>
+        </li>
+        <li v-if="payments.length === 0" class="empty">{{ t('memberDetail.payments.empty') }}</li>
+      </ul>
+    </section>
+
     <section class="card">
       <h2>{{ t('memberDetail.outreach.title') }}</h2>
       <ul class="outreach">
@@ -499,6 +571,15 @@ onMounted(load)
 .add-goal button {
   grid-column: 1 / -1;
 }
+.add-payment {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+.add-payment button {
+  grid-column: 1 / -1;
+}
 .goal-row {
   display: flex;
   align-items: center;
@@ -516,7 +597,8 @@ onMounted(load)
 .outreach,
 .consent,
 .goals,
-.forms {
+.forms,
+.payments {
   list-style: none;
   padding: 0;
   margin: 0;
@@ -528,7 +610,8 @@ onMounted(load)
 .timeline li,
 .outreach li,
 .goals li,
-.forms li {
+.forms li,
+.payments li {
   display: flex;
   align-items: center;
   gap: 0.6rem;

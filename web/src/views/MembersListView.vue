@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useRoute } from 'vue-router'
 import { api } from '@/lib/api'
 
 const { t } = useI18n()
+const route = useRoute()
 
 interface MemberListItem {
   id: string
@@ -13,22 +15,77 @@ interface MemberListItem {
   joinDate: string
 }
 
+interface AlertListItem {
+  memberId: string
+}
+
 const STATUSES = ['Active', 'Frozen', 'Cancelled', 'Lapsed']
+
+// Athletes sub-nav presets (App.vue) — filter views over this same list/endpoint rather
+// than separate pages. "At risk"/"early warning" reuse the (already unrestricted) alerts
+// endpoint client-side; "new"/"inactive" reuse fields the members endpoint already returns.
+const PRESETS = ['all', 'at-risk', 'early-warning', 'new', 'inactive'] as const
+type Preset = (typeof PRESETS)[number]
+const PRESET_I18N_KEY: Record<Preset, string> = { all: 'all', 'at-risk': 'atRisk', 'early-warning': 'earlyWarning', new: 'new', inactive: 'inactive' }
+const NEW_ATHLETE_WINDOW_DAYS = 30
+
+const preset = computed<Preset>(() => {
+  const p = route.params.preset as string
+  return (PRESETS as readonly string[]).includes(p) ? (p as Preset) : 'all'
+})
+const showsStatusFilter = computed(() => preset.value === 'all')
+const title = computed(() => (preset.value === 'all' ? t('members.title') : t(`members.presets.${PRESET_I18N_KEY[preset.value]}.title`)))
+const presetHint = computed(() => (preset.value === 'all' ? '' : t(`members.presets.${PRESET_I18N_KEY[preset.value]}.hint`)))
 
 const members = ref<MemberListItem[]>([])
 const search = ref('')
 const statusFilter = ref('')
 const loading = ref(true)
 
+async function loadAlertFiltered(severity: 'Red' | 'Amber') {
+  const [alerts, allMembers] = await Promise.all([
+    api.get<AlertListItem[]>(`/alerts?severity=${severity}`),
+    api.get<MemberListItem[]>('/members'),
+  ])
+  const flaggedIds = new Set(alerts.map((a) => a.memberId))
+  let list = allMembers.filter((m) => flaggedIds.has(m.id))
+  if (search.value) list = list.filter((m) => m.name.toLowerCase().includes(search.value.toLowerCase()))
+  members.value = list
+}
+
 async function load() {
   loading.value = true
-  const params = new URLSearchParams()
-  if (search.value) params.set('search', search.value)
-  if (statusFilter.value) params.set('status', statusFilter.value)
-  const query = params.toString() ? `?${params.toString()}` : ''
-  members.value = await api.get<MemberListItem[]>(`/members${query}`)
-  loading.value = false
+  try {
+    if (preset.value === 'at-risk' || preset.value === 'early-warning') {
+      await loadAlertFiltered(preset.value === 'at-risk' ? 'Red' : 'Amber')
+    } else if (preset.value === 'inactive') {
+      // Client-side union: the members endpoint filters by a single status, and
+      // "inactive" covers both the stored Lapsed and Cancelled statuses.
+      const searchQuery = search.value ? `&search=${encodeURIComponent(search.value)}` : ''
+      const [lapsed, cancelled] = await Promise.all([
+        api.get<MemberListItem[]>(`/members?status=Lapsed${searchQuery}`),
+        api.get<MemberListItem[]>(`/members?status=Cancelled${searchQuery}`),
+      ])
+      members.value = [...lapsed, ...cancelled].sort((a, b) => a.name.localeCompare(b.name))
+    } else {
+      const params = new URLSearchParams()
+      if (search.value) params.set('search', search.value)
+      if (showsStatusFilter.value && statusFilter.value) params.set('status', statusFilter.value)
+      const query = params.toString() ? `?${params.toString()}` : ''
+      let list = await api.get<MemberListItem[]>(`/members${query}`)
+
+      if (preset.value === 'new') {
+        const cutoff = Date.now() - NEW_ATHLETE_WINDOW_DAYS * 24 * 60 * 60 * 1000
+        list = list.filter((m) => new Date(m.joinDate).getTime() >= cutoff)
+      }
+      members.value = list
+    }
+  } finally {
+    loading.value = false
+  }
 }
+
+watch(preset, load)
 
 function tenure(joinDate: string) {
   const months = Math.floor((Date.now() - new Date(joinDate).getTime()) / (1000 * 60 * 60 * 24 * 30.44))
@@ -43,15 +100,16 @@ onMounted(load)
 <template>
   <div>
     <div class="header">
-      <h1>{{ t('members.title') }}</h1>
+      <h1>{{ title }}</h1>
       <div class="filters">
-        <select v-model="statusFilter" @change="load">
+        <select v-if="showsStatusFilter" v-model="statusFilter" @change="load">
           <option value="">{{ t('members.allStatuses') }}</option>
           <option v-for="s in STATUSES" :key="s" :value="s">{{ t(`members.statuses.${s}`) }}</option>
         </select>
         <input v-model="search" :placeholder="t('members.searchPlaceholder')" @keyup.enter="load" />
       </div>
     </div>
+    <p v-if="presetHint" class="hint">{{ presetHint }}</p>
     <p v-if="loading">Loading…</p>
     <table v-else>
       <thead>
@@ -80,6 +138,11 @@ onMounted(load)
 </template>
 
 <style scoped>
+.hint {
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+  margin: -0.75rem 0 1.25rem;
+}
 .header {
   display: flex;
   justify-content: space-between;

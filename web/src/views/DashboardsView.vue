@@ -1,10 +1,16 @@
 <script setup lang="ts">
-import { onMounted, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { api } from '@/lib/api'
+import { api, ApiError } from '@/lib/api'
 import { severityLabel } from '@/lib/labels'
+import ExplainThis from '@/components/ExplainThis.vue'
+import { useAuthStore } from '@/stores/auth'
 
 const { t } = useI18n()
+const route = useRoute()
+const router = useRouter()
+const authStore = useAuthStore()
+const isManagerOrOwner = computed(() => authStore.role === 'Manager' || authStore.role === 'Owner')
 
 interface CohortCurve {
   cohortLabel: string
@@ -48,9 +54,25 @@ interface ClassFill {
   window: string
   avgFillPct: number
 }
+interface RecentSession {
+  date: string
+  classType: string
+  workoutTitle: string | null
+  workoutDescription: string | null
+  tag: string
+  attendedCount: number
+  coachName: string | null
+}
 interface WorkoutMix {
   windowTypeHeatmap: HeatmapCell[]
   classFillBySlot: ClassFill[]
+  recentSessions: RecentSession[]
+}
+
+interface CoachItem {
+  id: string
+  name: string
+  status: string
 }
 
 interface MyWeekAlert {
@@ -67,24 +89,87 @@ interface MyWeek {
   resolvedThisWeekCount: number
 }
 
+interface NarrativeResponse {
+  status: 'Generated' | 'NotConfigured' | 'Error'
+  narrative: string | null
+  message: string | null
+  evidence: unknown
+}
+
 const TABS = ['retention', 'alertOps', 'workouts', 'myWeek'] as const
-const tab = ref<(typeof TABS)[number]>('retention')
+type TabId = (typeof TABS)[number]
+
+// URL segments (readable, stable) mapped to the internal tab ids above (kept as-is to
+// avoid touching every `tab === '...'` check below).
+const ROUTE_TO_TAB: Record<string, TabId> = { retention: 'retention', attendance: 'workouts', interventions: 'alertOps', 'my-week': 'myWeek' }
+const TAB_TO_ROUTE: Record<TabId, string> = { retention: 'retention', workouts: 'attendance', alertOps: 'interventions', myWeek: 'my-week' }
+
+const tab = computed<TabId>(() => ROUTE_TO_TAB[route.params.tab as string] ?? 'retention')
 const loading = ref(true)
+
+function selectTab(tabId: TabId) {
+  router.push(`/dashboard/${TAB_TO_ROUTE[tabId]}`)
+}
 
 const retention = ref<RetentionOverview | null>(null)
 const alertOps = ref<AlertOperations | null>(null)
 const workouts = ref<WorkoutMix | null>(null)
 const myWeek = ref<MyWeek | null>(null)
+const coaches = ref<CoachItem[]>([])
+const coachFilter = ref('')
+
+async function loadRetention() {
+  const query = coachFilter.value ? `?coachId=${coachFilter.value}` : ''
+  retention.value = await api.get(`/dashboards/retention${query}`)
+}
+
+const aiConfigured = ref<boolean | null>(null)
+const narrative = ref<NarrativeResponse | null>(null)
+const narrativeLoading = ref(false)
+const narrativeError = ref<string | null>(null)
 
 async function loadTab() {
   loading.value = true
   try {
-    if (tab.value === 'retention' && !retention.value) retention.value = await api.get('/dashboards/retention')
+    if (tab.value === 'retention') {
+      if (coaches.value.length === 0) coaches.value = await api.get<CoachItem[]>('/coaches?status=Active')
+      await loadRetention()
+    }
     if (tab.value === 'alertOps' && !alertOps.value) alertOps.value = await api.get('/dashboards/alerts')
     if (tab.value === 'workouts' && !workouts.value) workouts.value = await api.get('/dashboards/workouts')
     if (tab.value === 'myWeek' && !myWeek.value) myWeek.value = await api.get('/dashboards/my-week')
   } finally {
     loading.value = false
+  }
+}
+
+async function onCoachFilterChange() {
+  loading.value = true
+  try {
+    await loadRetention()
+  } finally {
+    loading.value = false
+// Cheap "is the feature turned on" check — never triggers a paid LLM call, so it's safe to run
+// automatically when the retention tab first opens (unlike getAiSummary, which is user-triggered only).
+async function checkAiConfigured() {
+  if (!isManagerOrOwner.value || aiConfigured.value !== null) return
+  try {
+    const res = await api.get<{ configured: boolean }>('/insights/status')
+    aiConfigured.value = res.configured
+  } catch {
+    aiConfigured.value = false
+  }
+}
+
+async function getAiSummary() {
+  narrativeLoading.value = true
+  narrativeError.value = null
+  try {
+    narrative.value = await api.post<NarrativeResponse>('/insights/narrative', { scope: 'retention-overview' })
+  } catch (e) {
+    narrativeError.value = e instanceof ApiError ? e.message : t('dashboards.retention.aiSummary.error')
+  } finally {
+    narrativeLoading.value = false
   }
 }
 
@@ -100,31 +185,94 @@ function exportRetentionCsv() {
 }
 
 watch(tab, loadTab)
-onMounted(loadTab)
+onMounted(() => {
+  if (!(route.params.tab as string in ROUTE_TO_TAB)) router.replace(`/dashboard/${TAB_TO_ROUTE[tab.value]}`)
+  loadTab()
+})
 </script>
 
 <template>
   <div>
     <h1>{{ t('dashboards.title') }}</h1>
     <div class="tabs">
-      <button v-for="tabId in TABS" :key="tabId" :class="{ ghost: tab !== tabId }" @click="tab = tabId">{{ t(`dashboards.tabs.${tabId}`) }}</button>
+      <button v-for="tabId in TABS" :key="tabId" :class="{ ghost: tab !== tabId }" @click="selectTab(tabId)">{{ t(`dashboards.tabs.${tabId}`) }}</button>
     </div>
 
     <p v-if="loading">Loading…</p>
 
     <template v-else-if="tab === 'retention' && retention">
-      <div class="stat-row">
-        <div class="stat"><span class="stat-value">{{ retention.activeCount }}</span><span class="stat-label">{{ t('dashboards.retention.active') }}</span></div>
-        <div class="stat"><span class="stat-value">{{ retention.newThisMonth }}</span><span class="stat-label">{{ t('dashboards.retention.newThisMonth') }}</span></div>
-        <div class="stat"><span class="stat-value">{{ retention.churnedThisMonth }}</span><span class="stat-label">{{ t('dashboards.retention.churnedThisMonth') }}</span></div>
-        <div class="stat"><span class="stat-value" :class="retention.netChange >= 0 ? 'good-text' : 'bad-text'">{{ retention.netChange >= 0 ? '+' : '' }}{{ retention.netChange }}</span><span class="stat-label">{{ t('dashboards.retention.netChange') }}</span></div>
-        <div class="stat"><span class="stat-value">{{ retention.monthlyChurnRatePct }}%</span><span class="stat-label">{{ t('dashboards.retention.monthlyChurn') }}</span></div>
-        <div class="stat"><span class="stat-value">{{ retention.lapsedCount }}</span><span class="stat-label">{{ t('dashboards.retention.lapsed') }}</span></div>
+      <div class="coach-filter">
+        <label>{{ t('dashboards.retention.coachFilter') }}</label>
+        <select v-model="coachFilter" @change="onCoachFilterChange">
+          <option value="">{{ t('dashboards.retention.allCoaches') }}</option>
+          <option v-for="c in coaches" :key="c.id" :value="c.id">{{ c.name }}</option>
+        </select>
       </div>
+      <div class="stat-row">
+        <div class="stat">
+          <span class="stat-value">{{ retention.activeCount }}</span>
+          <span class="stat-label">{{ t('dashboards.retention.active') }}<ExplainThis metric-key="active_members" /></span>
+          <span class="stat-period">{{ t('dashboards.periods.asOfToday') }}</span>
+        </div>
+        <div class="stat">
+          <span class="stat-value">{{ retention.newThisMonth }}</span>
+          <span class="stat-label">{{ t('dashboards.retention.newThisMonth') }}<ExplainThis metric-key="new_members_this_month" /></span>
+          <span class="stat-period">{{ t('dashboards.periods.thisMonth') }}</span>
+        </div>
+        <div class="stat">
+          <span class="stat-value">{{ retention.churnedThisMonth }}</span>
+          <span class="stat-label">{{ t('dashboards.retention.churnedThisMonth') }}<ExplainThis metric-key="churned_members_this_month" /></span>
+          <span class="stat-period">{{ t('dashboards.periods.thisMonth') }}</span>
+        </div>
+        <div class="stat">
+          <span class="stat-value" :class="retention.netChange >= 0 ? 'good-text' : 'bad-text'">{{ retention.netChange >= 0 ? '+' : '' }}{{ retention.netChange }}</span>
+          <span class="stat-label">{{ t('dashboards.retention.netChange') }}<ExplainThis metric-key="net_member_change" /></span>
+          <span class="stat-period">{{ t('dashboards.periods.thisMonth') }}</span>
+        </div>
+        <div class="stat">
+          <span class="stat-value">{{ retention.monthlyChurnRatePct }}%</span>
+          <span class="stat-label">{{ t('dashboards.retention.monthlyChurn') }}<ExplainThis metric-key="monthly_churn_rate_pct" /></span>
+          <span class="stat-period">{{ t('dashboards.periods.thisMonth') }}</span>
+        </div>
+        <div class="stat">
+          <span class="stat-value">{{ retention.lapsedCount }}</span>
+          <span class="stat-label">{{ t('dashboards.retention.lapsed') }}<ExplainThis metric-key="lapsed_members" /></span>
+          <span class="stat-period">{{ t('dashboards.periods.asOfToday') }}</span>
+        </div>
+      </div>
+
+      <section v-if="isManagerOrOwner" class="card ai-summary">
+        <h2>{{ t('dashboards.retention.aiSummary.title') }}</h2>
+        <p class="hint">{{ t('dashboards.retention.aiSummary.hint') }}</p>
+
+        <button
+          class="ghost"
+          :disabled="narrativeLoading || aiConfigured === false"
+          :title="aiConfigured === false ? t('dashboards.retention.aiSummary.notConfiguredTooltip') : undefined"
+          @click="getAiSummary"
+        >
+          {{ narrativeLoading ? t('dashboards.retention.aiSummary.loading') : t('dashboards.retention.aiSummary.button') }}
+        </button>
+
+        <p v-if="narrativeError" class="bad-text ai-message">{{ narrativeError }}</p>
+
+        <template v-if="narrative">
+          <p v-if="narrative.status === 'NotConfigured'" class="hint ai-message">{{ narrative.message }}</p>
+          <p v-else-if="narrative.status === 'Error'" class="bad-text ai-message">{{ narrative.message }}</p>
+          <template v-else>
+            <span class="badge ai-generated-badge">{{ t('dashboards.retention.aiSummary.aiGeneratedLabel') }}</span>
+            <p class="ai-narrative">{{ narrative.narrative }}</p>
+            <details class="ai-evidence">
+              <summary>{{ t('dashboards.retention.aiSummary.evidenceToggle') }}</summary>
+              <pre>{{ JSON.stringify(narrative.evidence, null, 2) }}</pre>
+            </details>
+          </template>
+        </template>
+      </section>
 
       <section class="card">
         <div class="section-header">
-          <h2>{{ t('dashboards.retention.cohortTitle') }}</h2>
+          <h2>{{ t('dashboards.retention.cohortTitle') }}<ExplainThis metric-key="cohort_retention_curve" /></h2>
           <button class="ghost" @click="exportRetentionCsv">{{ t('dashboards.retention.exportCsv') }}</button>
         </div>
         <p class="hint">{{ t('dashboards.retention.cohortHint') }}</p>
@@ -149,7 +297,7 @@ onMounted(loadTab)
       </section>
 
       <section class="card">
-        <h2>{{ t('dashboards.retention.tenureTitle') }}</h2>
+        <h2>{{ t('dashboards.retention.tenureTitle') }}<ExplainThis metric-key="tenure_at_churn_histogram" /></h2>
         <p class="hint">{{ t('dashboards.retention.tenureHint') }}</p>
         <div class="histogram">
           <div v-for="b in retention.tenureAtChurnHistogram" :key="b.label" class="bar-row">
@@ -163,11 +311,31 @@ onMounted(loadTab)
 
     <template v-else-if="tab === 'alertOps' && alertOps">
       <div class="stat-row">
-        <div class="stat"><span class="stat-value">{{ alertOps.slaComplianceRatePct }}%</span><span class="stat-label">{{ t('dashboards.alertOps.slaCompliance') }}</span></div>
-        <div class="stat"><span class="stat-value">{{ alertOps.avgTimeToClaimHours ?? '—' }}</span><span class="stat-label">{{ t('dashboards.alertOps.avgHoursToClaim') }}</span></div>
-        <div class="stat"><span class="stat-value">{{ alertOps.saveRatePct }}%</span><span class="stat-label">{{ t('dashboards.alertOps.saveRate') }}</span></div>
-        <div class="stat"><span class="stat-value">{{ alertOps.treatedReturnRatePct ?? '—' }}%</span><span class="stat-label">{{ t('dashboards.alertOps.treatedReturnRate') }}</span></div>
-        <div class="stat"><span class="stat-value">{{ alertOps.holdoutReturnRatePct ?? '—' }}%</span><span class="stat-label">{{ t('dashboards.alertOps.holdoutReturnRate') }}</span></div>
+        <div class="stat">
+          <span class="stat-value">{{ alertOps.slaComplianceRatePct }}%</span>
+          <span class="stat-label">{{ t('dashboards.alertOps.slaCompliance') }}<ExplainThis metric-key="alert_sla_compliance_rate_pct" /></span>
+          <span class="stat-period">{{ t('dashboards.periods.allTime') }}</span>
+        </div>
+        <div class="stat">
+          <span class="stat-value">{{ alertOps.avgTimeToClaimHours ?? '—' }}</span>
+          <span class="stat-label">{{ t('dashboards.alertOps.avgHoursToClaim') }}<ExplainThis metric-key="alert_avg_time_to_claim_hours" /></span>
+          <span class="stat-period">{{ t('dashboards.periods.allTime') }}</span>
+        </div>
+        <div class="stat">
+          <span class="stat-value">{{ alertOps.saveRatePct }}%</span>
+          <span class="stat-label">{{ t('dashboards.alertOps.saveRate') }}<ExplainThis metric-key="alert_save_rate_pct" /></span>
+          <span class="stat-period">{{ t('dashboards.periods.allTime') }}</span>
+        </div>
+        <div class="stat">
+          <span class="stat-value">{{ alertOps.treatedReturnRatePct ?? '—' }}%</span>
+          <span class="stat-label">{{ t('dashboards.alertOps.treatedReturnRate') }}<ExplainThis metric-key="alert_return_rate_holdout_vs_treated_pct" /></span>
+          <span class="stat-period">{{ t('dashboards.periods.next14Days') }}</span>
+        </div>
+        <div class="stat">
+          <span class="stat-value">{{ alertOps.holdoutReturnRatePct ?? '—' }}%</span>
+          <span class="stat-label">{{ t('dashboards.alertOps.holdoutReturnRate') }}<ExplainThis metric-key="alert_return_rate_holdout_vs_treated_pct" /></span>
+          <span class="stat-period">{{ t('dashboards.periods.next14Days') }}</span>
+        </div>
       </div>
 
       <section class="card">
@@ -214,6 +382,32 @@ onMounted(loadTab)
           </tbody>
         </table>
       </section>
+
+      <section class="card">
+        <h2>{{ t('dashboards.workouts.recentTitle') }}</h2>
+        <p class="hint">{{ t('dashboards.workouts.recentHint') }}</p>
+        <table>
+          <thead>
+            <tr>
+              <th>{{ t('dashboards.workouts.date') }}</th>
+              <th>{{ t('dashboards.workouts.classType') }}</th>
+              <th>{{ t('dashboards.workouts.workout') }}</th>
+              <th>{{ t('dashboards.workouts.coach') }}</th>
+              <th>{{ t('dashboards.workouts.attended') }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="(s, i) in workouts.recentSessions" :key="i">
+              <td>{{ new Date(s.date).toLocaleDateString() }}</td>
+              <td>{{ s.classType }}</td>
+              <td>{{ s.workoutTitle ?? '—' }}</td>
+              <td>{{ s.coachName ?? '—' }}</td>
+              <td>{{ s.attendedCount }}</td>
+            </tr>
+            <tr v-if="workouts.recentSessions.length === 0"><td colspan="5" class="empty">{{ t('dashboards.workouts.recentEmpty') }}</td></tr>
+          </tbody>
+        </table>
+      </section>
     </template>
 
     <template v-else-if="tab === 'myWeek' && myWeek">
@@ -247,6 +441,14 @@ onMounted(loadTab)
   gap: 0.5rem;
   margin-bottom: 1.25rem;
 }
+.coach-filter {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+}
 .stat-row {
   display: flex;
   flex-wrap: wrap;
@@ -270,6 +472,13 @@ onMounted(loadTab)
 .stat-label {
   font-size: 0.75rem;
   color: var(--color-text-muted);
+  display: flex;
+  align-items: center;
+}
+.stat-period {
+  font-size: 0.68rem;
+  color: var(--color-text-faint);
+  margin-top: 0.1rem;
 }
 .good-text {
   color: var(--color-success);
@@ -385,5 +594,41 @@ onMounted(loadTab)
 }
 .empty {
   color: var(--color-text-faint);
+}
+.ai-summary .hint {
+  margin-bottom: 0.75rem;
+}
+.ai-message {
+  margin-top: 0.6rem;
+}
+.ai-generated-badge {
+  display: inline-block;
+  margin-top: 0.75rem;
+  background: var(--color-info-soft);
+  color: var(--color-info);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  font-size: 0.65rem;
+}
+.ai-narrative {
+  white-space: pre-wrap;
+  margin: 0.5rem 0 0;
+  line-height: 1.5;
+}
+.ai-evidence {
+  margin-top: 0.75rem;
+}
+.ai-evidence summary {
+  cursor: pointer;
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+}
+.ai-evidence pre {
+  margin-top: 0.5rem;
+  padding: 0.75rem;
+  background: var(--color-bg-soft);
+  border-radius: var(--radius-md);
+  overflow-x: auto;
+  font-size: 0.75rem;
 }
 </style>

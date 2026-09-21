@@ -23,6 +23,7 @@ from sklearn.preprocessing import StandardScaler
 
 from app import model_registry
 from app.features import FEATURE_NAMES, build_features
+from app.metrics import calibration_bins, precision_recall_at_k
 from app.synthetic import generate
 
 GAP_WEEKS = 4
@@ -121,12 +122,17 @@ def evaluate(y_test, p_logreg, p_lgbm, p_ensemble) -> dict:
     top5_idx = order[:top5_n]
     lift_top5 = (float(np.mean(y_test[top5_idx])) / base_rate) if base_rate > 0 else None
 
+    degenerate = base_rate in (0, 1)
     return {
         "base_rate": base_rate,
         "n_test": len(y_test),
         "auc": auc,
         "pr_auc": pr_auc,
         "lift_top5pct": lift_top5,
+        # Same precision/recall-at-k and calibration shape app/logistic.py reports (app/metrics.py),
+        # on the ensemble probability — so backtest_compare.py can put both models side by side.
+        "precision_recall_at_k": [] if degenerate else [precision_recall_at_k(y_test, p_ensemble, k) for k in (0.02, 0.05, 0.10)],
+        "calibration": [] if degenerate else calibration_bins(y_test, p_ensemble),
     }
 
 
