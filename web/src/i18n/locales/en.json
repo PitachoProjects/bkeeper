@@ -81,7 +81,17 @@
       "cohort": "Cohort",
       "size": "Size",
       "tenureTitle": "Tenure at churn",
-      "tenureHint": "How long members stuck around before cancelling."
+      "tenureHint": "How long members stuck around before cancelling.",
+      "aiSummary": {
+        "title": "AI summary",
+        "hint": "An AI-generated explanation of the retention numbers above — it only ever describes the data shown here, never new numbers.",
+        "button": "Get AI summary",
+        "loading": "Generating…",
+        "notConfiguredTooltip": "AI summaries aren't configured for this environment.",
+        "aiGeneratedLabel": "AI-generated",
+        "evidenceToggle": "Show the data this summary is based on",
+        "error": "Couldn't generate an AI summary right now — please try again later."
+      }
     },
     "alertOps": {
       "slaCompliance": "SLA compliance",
