@@ -2,6 +2,59 @@
 
 Extends §2 of [PLAN.md](PLAN.md). Newest first.
 
+## D26 — Stage B statistical baseline (logistic regression) alongside the Stage C LightGBM ensemble
+Plan §8's own roadmap (rules → interpretable statistics → gradient boosting) was skipped straight
+from rules to LightGBM in D23 (Week 8). This fills the gap: a standalone, calibrated logistic
+regression, registered and served as a genuinely separate, comparable model — not folded into the
+existing ensemble the way `train.py`'s internal `logreg` component already was (that one exists
+only to be averaged with `lgbm`; it was never independently evaluated, calibrated or exposed).
+- **Reuses, never duplicates, the shared foundation**: `ml/app/logistic.py` imports `build_features`
+  (`app/features.py`) and `build_snapshots`/`temporal_split` (`app/train.py`) directly — same
+  point-in-time correctness, same `tests/test_no_leakage.py` coverage, same time-based (not random)
+  split. `ml/app/metrics.py` is new and shared too: precision/recall@k, ROC-AUC, PR-AUC, lift and
+  quantile-binned calibration, computed identically for both models so `backtest_compare.py` (new
+  script) can put them side by side on the same split. `train.py`'s own `evaluate()` gained the same
+  precision/recall/calibration fields (additively — every previously-returned key is unchanged) so
+  the two are actually comparable, not just individually reported.
+- **Calibration**: `CalibratedClassifierCV` (sigmoid/Platt, 5-fold) wraps the logistic regression
+  when training data has enough positives (≥20 per class); below that it falls back to the plain
+  fit rather than risk near-empty CV folds. The bundle also keeps the plain (uncalibrated) fit
+  purely for the coefficient report — a `CalibratedClassifierCV`'s per-fold coefficients aren't one
+  readable vector, but the plain fit on the same training set is, and standardized-feature
+  coefficients are the whole point of Stage B (direction + relative magnitude, no SHAP).
+- **Registry**: `model_registry.save`/`load_current` gained an optional `model_type` parameter
+  (default `"lightgbm_ensemble"`, matching every existing call site's behavior exactly — same file
+  names, same `current.txt` pointer) rather than a parallel registry module. A non-default
+  `model_type` gets its own file prefix and its own pointer file (`current-logistic_regression.txt`),
+  so `python -m app.train` and `python -m app.logistic` can be run independently and neither
+  overwrites the other's registered version.
+- **Serving**: `serve.py` loads and self-trains both models at startup (same synthetic-fallback
+  pattern D23 already established for the LightGBM ensemble) and gained `POST /score/logistic`
+  (interpretable reasons via the new `explain.top_reasons_linear` — coefficient × this member's
+  standardized value, not SHAP) alongside the unchanged `/score`. Both responses now carry
+  `model_type`; a new `GET /models` reports both models' registered metadata without retraining
+  (this was Appendix A's never-built `GET /models`).
+- **.NET**: `RiskScore` gained `ModelType` (migration `AddRiskScoreModelType`); the uniqueness index
+  is now `(BoxId, MemberId, SnapshotWeek, ModelType)` so a member has one row per model per week,
+  not one overall. `IMlScoringClient` gained `ScoreLogisticAsync` alongside the unchanged
+  `ScoreAsync`; `MlScoringJob` calls both every run and upserts each model's row independently.
+  `RiskScoresController`'s existing endpoints default to `lightgbm_ensemble` (unchanged shape/
+  behavior for existing callers) and gained `GET /risk-scores/members/{id}/compare` for the
+  side-by-side Manager/Owner view. Same Manager/Owner-only gate, same shadow-mode guarantee: neither
+  model creates an alert.
+- **Synthetic-data comparison** (`backtest_compare.py`, seed 42, 600 members/104 weeks, same split
+  both models see): ROC-AUC 0.853 vs. 0.853, PR-AUC 0.267 vs. 0.259, precision@top-5% 0.254 vs.
+  0.257 — logistic regression matches the LightGBM ensemble almost exactly on this synthetic
+  population, with a fully readable coefficient table the ensemble doesn't have. Expected, given how
+  linearly these 16 features were designed (plan §8) and how the generator itself works
+  (`synthetic.py`) — **not evidence either model will perform this way on real data** (same caveat
+  as D23 and OPEN_QUESTIONS.md).
+- **Not built**: real-data retraining, isotonic calibration (sigmoid was chosen over isotonic
+  because isotonic needs more positives per bin than this synthetic run reliably has; plan §8's own
+  isotonic threshold is 1,500 positives), drift monitoring, and a UI comparison view (the `/compare`
+  endpoint and `backtest_compare.py`'s table are the only surfaces today — plan requirement 6 asked
+  for a script, not a dashboard).
+
 ## D25 — Weeks 10-11: connector contract (not an implementation), rate limiting, GDPR tooling, backup drill
 **Week 10 is intentionally left as a contract, not an implementation.** The plan's own instruction is
 "implement the connector for the chosen platform after reading its API docs — do not assume

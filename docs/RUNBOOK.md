@@ -37,6 +37,31 @@ scripts/restore.sh ./backups/bkeeper_<ts>.dump        # restores into bkeeper_re
 Drilled live against the running stack while building this (see DECISIONS.md) — both scripts work.
 No automated backup schedule exists; this is a manual/cron-it-yourself pair of scripts.
 
+## Comparing the two churn models (Stage B vs. Stage C)
+
+`ml/app/logistic.py` trains a separate, interpretable logistic-regression baseline (Stage B)
+alongside the existing LightGBM ensemble (`ml/app/train.py`, Stage C) — same feature pipeline
+(`ml/app/features.py`), same time-based train/test split, registered under its own `model_type`
+(`logistic_regression` vs. `lightgbm_ensemble`) so neither overwrites the other in the model
+registry (`ml/models/`). Both stay shadow mode; `RiskScoresController` shows the LightGBM ensemble
+by default and the logistic regression as a comparison.
+
+```bash
+cd ml
+python -m app.logistic --version v1              # train + register the logistic baseline alone
+python backtest_compare.py --version v1          # both models, same split, side-by-side table
+python backtest_compare.py --json                # full metrics (precision/recall/AUC/calibration/coefficients) as JSON
+python backtest_compare.py --save --version v1   # also register both trained models
+```
+
+`GET /models` on the ML service (`bkeeper-ml`) returns both models' current metadata and metrics
+without retraining. Coefficients (direction + relative magnitude, standardized) are in the
+logistic model's `metrics.coefficients` — that's Stage B's interpretability, in place of the
+LightGBM model's SHAP-derived reasons.
+
+Runs on the synthetic generator until a real export exists (see OPEN_QUESTIONS.md) — read the
+numbers as an engineering sanity check, not a performance claim.
+
 ## Common operational tasks
 
 - **A member wants their data**: `GET /members/{id}/gdpr/export` (any authenticated staff) — one JSON
