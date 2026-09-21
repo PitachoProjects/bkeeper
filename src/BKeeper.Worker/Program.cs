@@ -44,6 +44,13 @@ recurringJobs.AddOrUpdate<MlScoringJob>(
     job => job.RunForAllBoxesAsync(DateOnly.FromDateTime(DateTime.UtcNow), CancellationToken.None),
     "30 23 * * 0");
 
+// Athlete Health Score (product spec, not in plan §4): daily, after the rule pipeline and
+// goals/evaluations jobs have run for the day.
+recurringJobs.AddOrUpdate<HealthScoreJob>(
+    "health-score-job",
+    job => job.RunForAllBoxesAsync(DateOnly.FromDateTime(DateTime.UtcNow), CancellationToken.None),
+    "50 5 * * *");
+
 // §11/§14: anonymize members cancelled 24+ months ago. Daily is overkill for a monthly-granularity
 // check, but cheap and simple beats a second cron shape to reason about.
 recurringJobs.AddOrUpdate<AnonymizationJob>(

@@ -81,6 +81,29 @@ interface RiskScore {
   modelVersion: string
 }
 
+interface HealthScoreFactor {
+  factor: string
+  score: number | null
+  weight: number
+  contribution: number
+  included: boolean
+  reason: string | null
+}
+
+interface HealthScoreItem {
+  memberId: string
+  calculationDate: string
+  configVersion: number
+  overallScore: number | null
+  insufficientData: boolean
+  tenureDays: number
+  sessionCount: number
+  factors: HealthScoreFactor[]
+  calculatedAt: string
+}
+
+const FACTOR_ORDER = ['Attendance', 'Consistency', 'BookingBehaviour', 'Progress', 'Engagement']
+
 interface WorkoutMixItem {
   tag: string
   count: number
@@ -97,6 +120,19 @@ const canSeeRisk = computed(() => auth.role === 'Manager' || auth.role === 'Owne
 
 const member = ref<MemberDetail | null>(null)
 const riskScore = ref<RiskScore | null>(null)
+const healthScore = ref<HealthScoreItem | null>(null)
+const healthScoreHistory = ref<HealthScoreItem[]>([])
+const showHealthScoreBreakdown = ref(false)
+const orderedFactors = computed(() =>
+  healthScore.value ? [...healthScore.value.factors].sort((a, b) => FACTOR_ORDER.indexOf(a.factor) - FACTOR_ORDER.indexOf(b.factor)) : [],
+)
+const healthScoreBand = computed(() => {
+  const score = healthScore.value?.overallScore
+  if (score === null || score === undefined) return ''
+  if (score >= 75) return 'green'
+  if (score >= 50) return 'amber'
+  return 'red'
+})
 const notes = ref<MemberNote[]>([])
 const timeline = ref<TimelineItem[]>([])
 const consent = ref<Consent[]>([])
@@ -133,6 +169,11 @@ async function load() {
   if (canSeeRisk.value) {
     riskScore.value = await api.get<RiskScore | null>(`/risk-scores/members/${memberId}`)
   }
+
+  ;[healthScore.value, healthScoreHistory.value] = await Promise.all([
+    api.get<HealthScoreItem | null>(`/members/${memberId}/health-score`),
+    api.get<HealthScoreItem[]>(`/members/${memberId}/health-score/history`),
+  ])
 }
 
 async function addGoal() {
@@ -214,6 +255,72 @@ onMounted(load)
         <li v-for="(r, i) in riskScore.topReasons" :key="i">{{ r }}</li>
       </ul>
       <p v-if="!riskScore" class="empty">{{ t('memberDetail.risk.empty') }}</p>
+    </section>
+
+    <section class="card">
+      <h2>{{ t('memberDetail.healthScore.title') }}</h2>
+      <p class="hint">{{ t('memberDetail.healthScore.hint') }}</p>
+
+      <template v-if="healthScore">
+        <template v-if="healthScore.insufficientData">
+          <p class="insufficient">
+            <strong>{{ t('memberDetail.healthScore.insufficientTitle') }}</strong><br />
+            {{ t('memberDetail.healthScore.insufficientHint') }}
+          </p>
+          <p class="hint">
+            {{ t('memberDetail.healthScore.tenureDays') }}: {{ healthScore.tenureDays }} {{ t('memberDetail.healthScore.tenureDaysUnit') }}
+            · {{ t('memberDetail.healthScore.sessionCount') }}: {{ healthScore.sessionCount }}
+          </p>
+        </template>
+        <template v-else>
+          <div class="risk-row">
+            <span class="badge" :class="healthScoreBand">{{ healthScore.overallScore }}</span>
+            <span class="date">{{ t('memberDetail.healthScore.asOf') }} {{ healthScore.calculationDate }}</span>
+          </div>
+
+          <div v-if="healthScoreHistory.length > 1" class="trend">
+            <span class="trend-label">{{ t('memberDetail.healthScore.trend') }}</span>
+            <div class="sparkline">
+              <div
+                v-for="h in healthScoreHistory"
+                :key="h.calculationDate"
+                class="bar"
+                :class="{ empty: h.overallScore === null }"
+                :style="{ height: `${Math.max(4, h.overallScore ?? 4)}%` }"
+                :title="`${h.calculationDate}: ${h.overallScore ?? '—'}`"
+              />
+            </div>
+          </div>
+
+          <button class="ghost" @click="showHealthScoreBreakdown = !showHealthScoreBreakdown">
+            {{ t('memberDetail.healthScore.howCalculated') }}
+          </button>
+
+          <table v-if="showHealthScoreBreakdown" class="factor-table">
+            <thead>
+              <tr>
+                <th>{{ t('memberDetail.healthScore.factor') }}</th>
+                <th>{{ t('memberDetail.healthScore.weight') }}</th>
+                <th>{{ t('memberDetail.healthScore.score') }}</th>
+                <th>{{ t('memberDetail.healthScore.contribution') }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="f in orderedFactors" :key="f.factor">
+                <td>{{ t(`memberDetail.healthScore.factors.${f.factor}`) }}</td>
+                <td>{{ f.included ? `${f.weight.toFixed(0)}%` : '—' }}</td>
+                <td>{{ f.score !== null ? f.score.toFixed(0) : '—' }}</td>
+                <td v-if="f.included">+{{ f.contribution.toFixed(1) }}</td>
+                <td v-else class="empty">
+                  {{ t('memberDetail.healthScore.notIncluded') }}
+                  <template v-if="f.reason">({{ t(`memberDetail.healthScore.reasons.${f.reason}`) }})</template>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </template>
+      </template>
+      <p v-else class="empty">{{ t('memberDetail.healthScore.empty') }}</p>
     </section>
 
     <section class="card">
@@ -516,5 +623,49 @@ code {
   padding: 0;
   font-size: 0.85rem;
   color: var(--color-text-muted);
+}
+.badge.green {
+  background: var(--color-success-soft);
+  color: var(--color-success);
+}
+.insufficient {
+  color: var(--color-text-muted);
+  background: var(--color-bg-soft);
+  border-radius: var(--radius-sm);
+  padding: 0.6rem 0.8rem;
+  margin: 0;
+}
+.trend {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.6rem;
+  margin-top: 0.75rem;
+}
+.trend-label {
+  font-size: 0.75rem;
+  color: var(--color-text-faint);
+}
+.sparkline {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 32px;
+}
+.sparkline .bar {
+  width: 6px;
+  min-height: 4px;
+  background: var(--color-accent);
+  border-radius: 2px;
+}
+.sparkline .bar.empty {
+  background: var(--color-border-strong);
+}
+.factor-table {
+  margin-top: 0.75rem;
+  width: 100%;
+}
+.factor-table td.empty {
+  color: var(--color-text-faint);
+  font-size: 0.8rem;
 }
 </style>

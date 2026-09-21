@@ -2,6 +2,44 @@
 
 Extends §2 of [PLAN.md](PLAN.md). Newest first.
 
+## D26 — Athlete Health Score engine (product spec, not in the original plan)
+A deterministic, configurable composite score (`HealthScore`/`HealthScoreConfiguration`,
+[src/BKeeper.Application/HealthScoring/](../src/BKeeper.Application/HealthScoring/)) distinct from the
+shadow-mode ML `RiskScore` (R13) and the survey-only `engagement_index` in `EvaluationScorer` — this
+combines Attendance, Consistency, Booking behaviour, Progress and Engagement into one 0-100 number,
+visible to Coach/Manager/Owner (not shadow-mode; it's explainable and rule-based, not a prediction).
+- **Weights are versioned, not edited in place**: `HealthScoreConfiguration` is box-scoped and
+  immutable per version (mirrors `EvaluationForm.Version`, since `RuleConfig` itself turned out to have
+  no version history to reuse — it's a single mutable row per rule code). A `PUT /health-score/config`
+  deactivates the current version and inserts a new one; every `HealthScore` row keeps the
+  `ConfigVersion` that was active when it was calculated, so re-weighting today never rewrites
+  yesterday's stored scores (tested in `HealthScoreJobTests`).
+- **Progress factor** proxies the spec's Benchmark/PR data with `Goal`/`GoalProgress` — the only
+  progress-tracking entity this codebase has (no Benchmark/PR entity exists, and the task explicitly
+  ruled out building one). A member with no active goals gets an explicit `no_goals` outcome and is
+  excluded from the weighted denominator (renormalized away), never scored as failing.
+- **Per-factor "no data" renormalizes, never fails to 0**: `HealthScoreComposer` drops any disabled or
+  no-data factor from both the numerator and the weight denominator, so the remaining factors' weights
+  scale back up to 100 — e.g. dropping Engagement (weight 10) rescales Attendance from 35 to 35/90×100.
+- **Cold start**: below configurable tenure-days/session-count minimums, the whole score is
+  `InsufficientData` (no numeric score at all) — but `TenureDays`/`SessionCount` are still recorded so
+  the UI can show "not enough history yet, but here's what we know" instead of a blank card.
+- **No MemberWeek dependency**: the plan's own "rebuild MemberWeek, then score" ordering doesn't apply
+  here because nothing in this codebase populates `MemberWeek` yet (see docs/OPEN_QUESTIONS.md — a
+  pre-existing Week 3 gap, not something this pass fixes, per the task's own scope limits). The
+  `HealthScoreJob` reads booking facts directly and reuses `MetricsBuilder`/`AttendanceMetrics`, the
+  same way `DailyRulePipeline` and `MlScoringJob` already do. It runs daily at 05:50, after
+  `daily-rule-pipeline` (05:30) and `goals-evaluations-job` (05:45).
+- **Engagement factor** uses `EvaluationScorer.EngagementIndex` averaged across evaluation responses in
+  the config's window. Blending in evaluation-form *participation rate* (sent vs. answered links) is a
+  reasonable extension the spec allows for ("and/or") but wasn't built here — see follow-ups below.
+- **Not built** (flagged for a human reviewer): participation-rate blending into Engagement; a
+  Manager-facing audit *history* view for config changes (the `AuditLog` rows exist — `GET /health-score/config`
+  only returns the current version, there's no `GET /health-score/config/history` endpoint yet);
+  sliders in the Settings UI (number inputs were used instead, consistent with the rest of Settings'
+  plain-input style); and box time-zone-aware "calculation date" (like the rest of this codebase, the
+  job uses UTC `DateTime.UtcNow` rather than the box's configured time zone).
+
 ## D25 — Weeks 10-11: connector contract (not an implementation), rate limiting, GDPR tooling, backup drill
 **Week 10 is intentionally left as a contract, not an implementation.** The plan's own instruction is
 "implement the connector for the chosen platform after reading its API docs — do not assume

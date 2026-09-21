@@ -31,7 +31,21 @@
     "family": "Família",
     "description": "Descrição",
     "enabled": "Ativa",
-    "enabledHint": "Desliga esta regra para o seu box — deixa de criar novos alertas; os já criados não são afetados."
+    "enabledHint": "Desliga esta regra para o seu box — deixa de criar novos alertas; os já criados não são afetados.",
+    "healthScore": {
+      "title": "Pesos da pontuação de saúde",
+      "hint": "O quanto cada fator conta para a pontuação de saúde composta. Deve somar 100% antes de guardar.",
+      "total": "Total",
+      "save": "Guardar",
+      "saved": "Guardado como versão {version}.",
+      "invalidTotal": "Os pesos devem somar 100% (atualmente {total}%).",
+      "enabled": "Ativo",
+      "weight": "Peso %",
+      "version": "Versão ativa",
+      "minTenureDays": "Antiguidade mínima (dias)",
+      "minSessions": "Sessões mínimas",
+      "coldStartHint": "Membros abaixo de ambos os mínimos recebem \"sem histórico suficiente\" em vez de uma pontuação."
+    }
   },
   "alerts": {
     "title": "Caixa de alertas",
@@ -127,6 +141,39 @@
       "weekOf": "semana de",
       "model": "modelo",
       "empty": "Ainda sem pontuação — corre semanalmente (domingo), ou pode ser despoletado a partir da caixa de alertas."
+    },
+    "healthScore": {
+      "title": "Pontuação de saúde",
+      "hint": "Uma pontuação composta de 0-100 baseada em presença, consistência, comportamento de reservas, progresso de objetivos e envolvimento — determinística e configurável, não uma previsão.",
+      "trend": "Tendência",
+      "asOf": "em",
+      "insufficientTitle": "Ainda sem histórico suficiente",
+      "insufficientHint": "Este membro ainda não tem antiguidade suficiente (ou sessões suficientes) para uma pontuação fiável.",
+      "tenureDays": "Antiguidade",
+      "tenureDaysUnit": "dias",
+      "sessionCount": "Sessões registadas",
+      "howCalculated": "Como esta pontuação é calculada",
+      "factor": "Fator",
+      "weight": "Peso",
+      "score": "Pontuação",
+      "contribution": "Contribuição",
+      "notIncluded": "Não incluído",
+      "empty": "Ainda sem pontuação — corre diariamente, ou pode ser despoletada a partir das Definições.",
+      "factors": {
+        "Attendance": "Presença",
+        "Consistency": "Consistência",
+        "BookingBehaviour": "Comportamento de reservas",
+        "Progress": "Progresso",
+        "Engagement": "Envolvimento"
+      },
+      "reasons": {
+        "disabled": "desativado na configuração",
+        "no_goals": "sem objetivos definidos",
+        "no_evaluations": "sem respostas de avaliação",
+        "insufficient_history": "sem histórico suficiente",
+        "no_visits": "sem visitas no período",
+        "insufficient_data": "dados insuficientes"
+      }
     },
     "notes": {
       "title": "Notas",
