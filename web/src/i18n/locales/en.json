@@ -3,8 +3,45 @@
     "members": "Members",
     "alerts": "Alert inbox",
     "dashboards": "Dashboards",
+    "coaches": "Coaches",
     "import": "Import",
     "settings": "Settings"
+    "groups": {
+      "dashboard": "Dashboard",
+      "athletes": "Athletes",
+      "classes": "Classes",
+      "insights": "Insights",
+      "reports": "Reports",
+      "configuration": "Configuration"
+    },
+    "dashboard": {
+      "overview": "Overview",
+      "attendance": "Attendance",
+      "interventions": "Interventions",
+      "myWeek": "My week"
+    },
+    "athletes": {
+      "all": "All athletes",
+      "atRisk": "At risk",
+      "earlyWarning": "Early warning",
+      "new": "New athletes",
+      "inactive": "Inactive",
+      "alertInbox": "Alert inbox"
+    },
+    "classes": {
+      "analytics": "Schedule & attendance"
+    },
+    "insights": {
+      "retention": "Retention trends",
+      "alertOutcomes": "Alert outcomes"
+    },
+    "reports": {
+      "retention": "Retention report"
+    },
+    "configuration": {
+      "general": "General",
+      "import": "Data import"
+    }
   },
   "theme": { "light": "Light", "dark": "Dark" },
   "signOut": "Sign out",
@@ -29,7 +66,28 @@
     "tenure": "Tenure",
     "empty": "No members yet — try the Import page.",
     "allStatuses": "All statuses",
-    "statuses": { "Active": "Active", "Frozen": "Frozen", "Cancelled": "Cancelled", "Lapsed": "Lapsed" }
+    "statuses": { "Active": "Active", "Frozen": "Frozen", "Cancelled": "Cancelled", "Lapsed": "Lapsed" },
+    "presets": {
+      "atRisk": { "title": "At risk", "hint": "Members with an open critical (red) alert." },
+      "earlyWarning": { "title": "Early warning", "hint": "Members with an open high-priority (amber) alert." },
+      "new": { "title": "New athletes", "hint": "Joined in the last 30 days." },
+      "inactive": { "title": "Inactive", "hint": "Cancelled or lapsed members." }
+    }
+  },
+  "coaches": {
+    "title": "Coaches",
+    "hint": "Coaches promoted from class-session data, plus any added here. Linking a session's coach to one of these enables per-coach retention drill-down on the Dashboards page.",
+    "addCoach": "+ Add coach",
+    "cancel": "Cancel",
+    "name": "Name",
+    "email": "Email",
+    "status": "Status",
+    "namePlaceholder": "Name",
+    "emailPlaceholder": "Email (optional)",
+    "save": "Save",
+    "edit": "Edit",
+    "empty": "No coaches yet.",
+    "statuses": { "Active": "Active", "Inactive": "Inactive" }
   },
   "settings": {
     "title": "Settings",
@@ -97,7 +155,19 @@
       "cohort": "Cohort",
       "size": "Size",
       "tenureTitle": "Tenure at churn",
-      "tenureHint": "How long members stuck around before cancelling."
+      "tenureHint": "How long members stuck around before cancelling.",
+      "coachFilter": "Coach",
+      "allCoaches": "All coaches (box-wide)"
+      "aiSummary": {
+        "title": "AI summary",
+        "hint": "An AI-generated explanation of the retention numbers above — it only ever describes the data shown here, never new numbers.",
+        "button": "Get AI summary",
+        "loading": "Generating…",
+        "notConfiguredTooltip": "AI summaries aren't configured for this environment.",
+        "aiGeneratedLabel": "AI-generated",
+        "evidenceToggle": "Show the data this summary is based on",
+        "error": "Couldn't generate an AI summary right now — please try again later."
+      }
     },
     "alertOps": {
       "slaCompliance": "SLA compliance",
@@ -122,7 +192,14 @@
       "fillTitle": "Class fill by slot",
       "classType": "Class type",
       "avgFill": "Avg fill",
-      "fillEmpty": "No capacity data in the last 12 weeks."
+      "fillEmpty": "No capacity data in the last 12 weeks.",
+      "recentTitle": "Recent sessions",
+      "recentHint": "Last 20 sessions with a logged workout, last 12 weeks.",
+      "date": "Date",
+      "workout": "Workout",
+      "coach": "Coach",
+      "attended": "Attended",
+      "recentEmpty": "No recent sessions with a logged workout."
     },
     "myWeek": {
       "openCoach": "Open (Coach)",
@@ -201,6 +278,24 @@
       "title": "Workout mix",
       "hint": "Attended workout types over the last 4 months, by tag.",
       "empty": "No tagged attended workouts in the last 4 months."
+    },
+    "payments": {
+      "title": "Payments",
+      "hint": "Payments recorded for this member — collected elsewhere (cash, card terminal, bank transfer); not a payment processor.",
+      "addPayment": "+ Add payment",
+      "cancel": "Cancel",
+      "amountPlaceholder": "Amount",
+      "currencyPlaceholder": "Currency",
+      "notesPlaceholder": "Notes (optional)",
+      "save": "Save",
+      "date": "Date",
+      "amount": "Amount",
+      "status": "Status",
+      "method": "Method",
+      "notes": "Notes",
+      "empty": "No payments recorded yet.",
+      "statuses": { "Completed": "Completed", "Refunded": "Refunded", "Failed": "Failed" },
+      "methods": { "Card": "Card", "Cash": "Cash", "Transfer": "Transfer", "Other": "Other" }
     }
   },
   "import": {
