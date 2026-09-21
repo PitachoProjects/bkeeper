@@ -20,6 +20,7 @@ const route = useRoute()
         <RouterLink to="/members">{{ t('nav.members') }}</RouterLink>
         <RouterLink to="/alerts">{{ t('nav.alerts') }}</RouterLink>
         <RouterLink to="/dashboards">{{ t('nav.dashboards') }}</RouterLink>
+        <RouterLink to="/coaches">{{ t('nav.coaches') }}</RouterLink>
         <RouterLink to="/import">{{ t('nav.import') }}</RouterLink>
         <RouterLink to="/settings">{{ t('nav.settings') }}</RouterLink>
       </nav>

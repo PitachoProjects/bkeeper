@@ -3,6 +3,7 @@
     "members": "Membros",
     "alerts": "Caixa de alertas",
     "dashboards": "Painéis",
+    "coaches": "Treinadores",
     "import": "Importar",
     "settings": "Definições"
   },
@@ -20,6 +21,21 @@
     "empty": "Ainda sem membros — experimente a página de Importação.",
     "allStatuses": "Todos os estados",
     "statuses": { "Active": "Ativo", "Frozen": "Congelado", "Cancelled": "Cancelado", "Lapsed": "Inativo" }
+  },
+  "coaches": {
+    "title": "Treinadores",
+    "hint": "Treinadores promovidos a partir dos dados das aulas, além dos adicionados aqui. Associar o treinador de uma aula a um destes ativa a análise de retenção por treinador no painel.",
+    "addCoach": "+ Adicionar treinador",
+    "cancel": "Cancelar",
+    "name": "Nome",
+    "email": "Email",
+    "status": "Estado",
+    "namePlaceholder": "Nome",
+    "emailPlaceholder": "Email (opcional)",
+    "save": "Guardar",
+    "edit": "Editar",
+    "empty": "Ainda sem treinadores.",
+    "statuses": { "Active": "Ativo", "Inactive": "Inativo" }
   },
   "settings": {
     "title": "Definições",
@@ -81,7 +97,9 @@
       "cohort": "Coorte",
       "size": "Tamanho",
       "tenureTitle": "Antiguidade até ao churn",
-      "tenureHint": "Quanto tempo os membros ficaram antes de cancelar."
+      "tenureHint": "Quanto tempo os membros ficaram antes de cancelar.",
+      "coachFilter": "Treinador",
+      "allCoaches": "Todos os treinadores (todo o box)"
     },
     "alertOps": {
       "slaCompliance": "Cumprimento de SLA",
@@ -106,7 +124,14 @@
       "fillTitle": "Ocupação de aulas por horário",
       "classType": "Tipo de aula",
       "avgFill": "Ocupação média",
-      "fillEmpty": "Sem dados de capacidade nas últimas 12 semanas."
+      "fillEmpty": "Sem dados de capacidade nas últimas 12 semanas.",
+      "recentTitle": "Aulas recentes",
+      "recentHint": "Últimas 20 aulas com treino registado, últimas 12 semanas.",
+      "date": "Data",
+      "workout": "Treino",
+      "coach": "Treinador",
+      "attended": "Presenças",
+      "recentEmpty": "Sem aulas recentes com treino registado."
     },
     "myWeek": {
       "openCoach": "Abertos (Treinador)",
@@ -185,6 +210,24 @@
       "title": "Mistura de treinos",
       "hint": "Tipos de treino frequentados nos últimos 4 meses, por categoria.",
       "empty": "Sem treinos com categoria nos últimos 4 meses."
+    },
+    "payments": {
+      "title": "Pagamentos",
+      "hint": "Pagamentos registados para este membro — cobrados noutro sítio (dinheiro, terminal de cartão, transferência); não é um processador de pagamentos.",
+      "addPayment": "+ Adicionar pagamento",
+      "cancel": "Cancelar",
+      "amountPlaceholder": "Valor",
+      "currencyPlaceholder": "Moeda",
+      "notesPlaceholder": "Notas (opcional)",
+      "save": "Guardar",
+      "date": "Data",
+      "amount": "Valor",
+      "status": "Estado",
+      "method": "Método",
+      "notes": "Notas",
+      "empty": "Ainda sem pagamentos registados.",
+      "statuses": { "Completed": "Concluído", "Refunded": "Reembolsado", "Failed": "Falhado" },
+      "methods": { "Card": "Cartão", "Cash": "Dinheiro", "Transfer": "Transferência", "Other": "Outro" }
     }
   },
   "import": {

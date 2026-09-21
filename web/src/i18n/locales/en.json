@@ -3,6 +3,7 @@
     "members": "Members",
     "alerts": "Alert inbox",
     "dashboards": "Dashboards",
+    "coaches": "Coaches",
     "import": "Import",
     "settings": "Settings"
   },
@@ -20,6 +21,21 @@
     "empty": "No members yet — try the Import page.",
     "allStatuses": "All statuses",
     "statuses": { "Active": "Active", "Frozen": "Frozen", "Cancelled": "Cancelled", "Lapsed": "Lapsed" }
+  },
+  "coaches": {
+    "title": "Coaches",
+    "hint": "Coaches promoted from class-session data, plus any added here. Linking a session's coach to one of these enables per-coach retention drill-down on the Dashboards page.",
+    "addCoach": "+ Add coach",
+    "cancel": "Cancel",
+    "name": "Name",
+    "email": "Email",
+    "status": "Status",
+    "namePlaceholder": "Name",
+    "emailPlaceholder": "Email (optional)",
+    "save": "Save",
+    "edit": "Edit",
+    "empty": "No coaches yet.",
+    "statuses": { "Active": "Active", "Inactive": "Inactive" }
   },
   "settings": {
     "title": "Settings",
@@ -81,7 +97,9 @@
       "cohort": "Cohort",
       "size": "Size",
       "tenureTitle": "Tenure at churn",
-      "tenureHint": "How long members stuck around before cancelling."
+      "tenureHint": "How long members stuck around before cancelling.",
+      "coachFilter": "Coach",
+      "allCoaches": "All coaches (box-wide)"
     },
     "alertOps": {
       "slaCompliance": "SLA compliance",
@@ -106,7 +124,14 @@
       "fillTitle": "Class fill by slot",
       "classType": "Class type",
       "avgFill": "Avg fill",
-      "fillEmpty": "No capacity data in the last 12 weeks."
+      "fillEmpty": "No capacity data in the last 12 weeks.",
+      "recentTitle": "Recent sessions",
+      "recentHint": "Last 20 sessions with a logged workout, last 12 weeks.",
+      "date": "Date",
+      "workout": "Workout",
+      "coach": "Coach",
+      "attended": "Attended",
+      "recentEmpty": "No recent sessions with a logged workout."
     },
     "myWeek": {
       "openCoach": "Open (Coach)",
@@ -185,6 +210,24 @@
       "title": "Workout mix",
       "hint": "Attended workout types over the last 4 months, by tag.",
       "empty": "No tagged attended workouts in the last 4 months."
+    },
+    "payments": {
+      "title": "Payments",
+      "hint": "Payments recorded for this member — collected elsewhere (cash, card terminal, bank transfer); not a payment processor.",
+      "addPayment": "+ Add payment",
+      "cancel": "Cancel",
+      "amountPlaceholder": "Amount",
+      "currencyPlaceholder": "Currency",
+      "notesPlaceholder": "Notes (optional)",
+      "save": "Save",
+      "date": "Date",
+      "amount": "Amount",
+      "status": "Status",
+      "method": "Method",
+      "notes": "Notes",
+      "empty": "No payments recorded yet.",
+      "statuses": { "Completed": "Completed", "Refunded": "Refunded", "Failed": "Failed" },
+      "methods": { "Card": "Card", "Cash": "Cash", "Transfer": "Transfer", "Other": "Other" }
     }
   },
   "import": {

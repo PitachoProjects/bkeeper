@@ -18,6 +18,7 @@ const router = createRouter({
     { path: '/alerts', name: 'alerts', component: () => import('@/views/AlertsInboxView.vue') },
     { path: '/import', name: 'import', component: () => import('@/views/ImportView.vue') },
     { path: '/dashboards', name: 'dashboards', component: () => import('@/views/DashboardsView.vue') },
+    { path: '/coaches', name: 'coaches', component: () => import('@/views/CoachesListView.vue') },
     { path: '/settings', name: 'settings', component: () => import('@/views/SettingsView.vue') },
   ],
 })
