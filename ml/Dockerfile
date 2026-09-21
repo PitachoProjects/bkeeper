@@ -10,6 +10,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY app ./app
 COPY tests ./tests
+COPY backtest_compare.py .
 
 ENV BKEEPER_ML_MODELS_DIR=/app/models
 RUN mkdir -p /app/models
