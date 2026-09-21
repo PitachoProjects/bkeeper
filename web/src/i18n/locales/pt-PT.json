@@ -118,7 +118,17 @@
       "cohort": "Coorte",
       "size": "Tamanho",
       "tenureTitle": "Antiguidade até ao churn",
-      "tenureHint": "Quanto tempo os membros ficaram antes de cancelar."
+      "tenureHint": "Quanto tempo os membros ficaram antes de cancelar.",
+      "aiSummary": {
+        "title": "Resumo de IA",
+        "hint": "Uma explicação gerada por IA dos números de retenção acima — descreve apenas os dados aqui apresentados, nunca números novos.",
+        "button": "Obter resumo de IA",
+        "loading": "A gerar…",
+        "notConfiguredTooltip": "Os resumos de IA não estão configurados para este ambiente.",
+        "aiGeneratedLabel": "Gerado por IA",
+        "evidenceToggle": "Mostrar os dados em que este resumo se baseia",
+        "error": "Não foi possível gerar um resumo de IA agora — tente novamente mais tarde."
+      }
     },
     "alertOps": {
       "slaCompliance": "Cumprimento de SLA",

@@ -2,6 +2,46 @@
 
 Extends §2 of [PLAN.md](PLAN.md). Newest first.
 
+## D26 — AI narrative layer: explains validated analytics, never computes them (plan §16.8, partial)
+`POST /insights/narrative` (Manager/Owner only, same gate as `RiskScoresController`) turns the
+already-computed `RetentionOverviewDto` into a plain-language summary via Anthropic's Messages API —
+a first, self-contained slice of the plan's §16.8 "agent layer" vision ("summarises member history,
+answers 'who is at risk and why'"), scoped down to one narrow, human-triggered question
+("what changed in retention this period") rather than open-ended chat.
+- **Hard architectural rule, enforced by construction, not just by prompt**: `INarrativeGenerator`
+  ([src/BKeeper.Application/Insights/INarrativeGenerator.cs](../src/BKeeper.Application/Insights/INarrativeGenerator.cs))
+  takes a scope name and a JSON string — never a DB context, never a query — so the LLM implementation
+  has no way to reach the database even if the prompt guardrails failed. `NarrativeInsightsService`
+  builds that JSON by serializing the exact same `RetentionOverviewDto` `DashboardsController` already
+  returns (via a newly-extracted `IRetentionOverviewService` — the query logic moved out of the
+  controller so both callers share one computation, no second implementation to drift).
+- **Guardrails live in the system prompt** (`AnthropicNarrativeGenerator`): forbidden from citing any
+  number not present in the JSON payload, forbidden from causal/diagnostic claims about a member
+  ("this athlete is demotivated") in favour of associative language ("is associated with", "may
+  indicate"), required to say "not enough data" rather than guess, and required to answer in three
+  labelled sections (FACTS/SIGNALS/INSIGHT) so the frontend can render AI output visibly distinct from
+  the deterministic numbers it's explaining. The evidence JSON is returned alongside the narrative
+  (`GET`'s response includes `evidence`) so staff can see exactly what the summary was based on —
+  "never hide the methodology."
+- **HTTP client, not the Anthropic SDK**: follows the same pattern as `HttpMlScoringClient` (typed
+  `HttpClient`, options-bound config, catches everything and returns a graceful `Error`/`NotConfigured`
+  result — never throws into the request pipeline) rather than adding a new SDK dependency for one
+  endpoint.
+- **Gracefully disabled with no API key** (the default in every environment that hasn't set one):
+  `AnthropicOptions.ApiKey` is empty in `appsettings.json` and in `docker-compose.yml` unless
+  `ANTHROPIC_API_KEY` is set; `INarrativeGenerator.IsConfigured` lets both the API (`GET /insights/status`)
+  and the frontend check this without spending a paid call. `NoOpNarrativeGenerator` is the always-off
+  double used in tests.
+- **Frontend**: a "Get AI summary" card on the retention tab, fetched only on click (never on page
+  load — it costs money per call), clearly labelled "AI-generated," with the evidence JSON behind a
+  `<details>` toggle. The button disables with a tooltip instead of erroring when the backend reports
+  `configured: false`.
+- **Not built**: any scope beyond `retention-overview` (alert-ops and workout-mix narratives would
+  follow the identical pattern — swap the DTO, add a case to `ScopeInstruction`), streaming responses,
+  and per-box customization of the system prompt. Deliberately does not depend on or wire into the
+  metric-definition-registry's "Explain This" pattern (separate parallel work) — this card is
+  self-contained.
+
 ## D25 — Weeks 10-11: connector contract (not an implementation), rate limiting, GDPR tooling, backup drill
 **Week 10 is intentionally left as a contract, not an implementation.** The plan's own instruction is
 "implement the connector for the chosen platform after reading its API docs — do not assume
