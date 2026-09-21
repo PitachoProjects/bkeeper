@@ -6,6 +6,42 @@
     "coaches": "Coaches",
     "import": "Import",
     "settings": "Settings"
+    "groups": {
+      "dashboard": "Dashboard",
+      "athletes": "Athletes",
+      "classes": "Classes",
+      "insights": "Insights",
+      "reports": "Reports",
+      "configuration": "Configuration"
+    },
+    "dashboard": {
+      "overview": "Overview",
+      "attendance": "Attendance",
+      "interventions": "Interventions",
+      "myWeek": "My week"
+    },
+    "athletes": {
+      "all": "All athletes",
+      "atRisk": "At risk",
+      "earlyWarning": "Early warning",
+      "new": "New athletes",
+      "inactive": "Inactive",
+      "alertInbox": "Alert inbox"
+    },
+    "classes": {
+      "analytics": "Schedule & attendance"
+    },
+    "insights": {
+      "retention": "Retention trends",
+      "alertOutcomes": "Alert outcomes"
+    },
+    "reports": {
+      "retention": "Retention report"
+    },
+    "configuration": {
+      "general": "General",
+      "import": "Data import"
+    }
   },
   "theme": { "light": "Light", "dark": "Dark" },
   "signOut": "Sign out",
@@ -20,7 +56,13 @@
     "tenure": "Tenure",
     "empty": "No members yet — try the Import page.",
     "allStatuses": "All statuses",
-    "statuses": { "Active": "Active", "Frozen": "Frozen", "Cancelled": "Cancelled", "Lapsed": "Lapsed" }
+    "statuses": { "Active": "Active", "Frozen": "Frozen", "Cancelled": "Cancelled", "Lapsed": "Lapsed" },
+    "presets": {
+      "atRisk": { "title": "At risk", "hint": "Members with an open critical (red) alert." },
+      "earlyWarning": { "title": "Early warning", "hint": "Members with an open high-priority (amber) alert." },
+      "new": { "title": "New athletes", "hint": "Joined in the last 30 days." },
+      "inactive": { "title": "Inactive", "hint": "Cancelled or lapsed members." }
+    }
   },
   "coaches": {
     "title": "Coaches",
@@ -100,6 +142,16 @@
       "tenureHint": "How long members stuck around before cancelling.",
       "coachFilter": "Coach",
       "allCoaches": "All coaches (box-wide)"
+      "aiSummary": {
+        "title": "AI summary",
+        "hint": "An AI-generated explanation of the retention numbers above — it only ever describes the data shown here, never new numbers.",
+        "button": "Get AI summary",
+        "loading": "Generating…",
+        "notConfiguredTooltip": "AI summaries aren't configured for this environment.",
+        "aiGeneratedLabel": "AI-generated",
+        "evidenceToggle": "Show the data this summary is based on",
+        "error": "Couldn't generate an AI summary right now — please try again later."
+      }
     },
     "alertOps": {
       "slaCompliance": "SLA compliance",

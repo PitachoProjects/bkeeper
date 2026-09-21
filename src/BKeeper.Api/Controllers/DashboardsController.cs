@@ -10,12 +10,6 @@ using Microsoft.EntityFrameworkCore;
 
 namespace BKeeper.Api.Controllers;
 
-public record CohortCurveDto(string CohortLabel, int CohortSize, List<double?> RetentionByMonth);
-public record HistogramBucketDto(string Label, int Count);
-public record RetentionOverviewDto(
-    int ActiveCount, int NewThisMonth, int ChurnedThisMonth, int NetChange, double MonthlyChurnRatePct,
-    int LapsedCount, List<CohortCurveDto> Cohorts, List<HistogramBucketDto> TenureAtChurnHistogram);
-
 public record AlertOperationsDto(
     Dictionary<string, int> VolumeBySeverity, Dictionary<string, int> VolumeByFamily,
     double SlaComplianceRatePct, double? AvgTimeToClaimHours, Dictionary<string, int> OutcomesMix,
@@ -32,7 +26,7 @@ public record MyWeekDto(List<MyWeekAlertDto> OpenAlerts, int DueThisWeekCount, i
 [ApiController]
 [Route("dashboards")]
 [Authorize]
-public class DashboardsController(BKeeperDbContext db) : ControllerBase
+public class DashboardsController(BKeeperDbContext db, IRetentionOverviewService retentionOverviewService) : ControllerBase
 {
     /// <summary>Plan §9: active/new/churned/net/monthly-churn, cohort retention curves, tenure-at-churn histogram.
     /// <paramref name="coachId"/> is an additive drill-down (not in the original plan): when set, every
@@ -220,7 +214,7 @@ public class DashboardsController(BKeeperDbContext db) : ControllerBase
     [HttpGet("retention/export")]
     public async Task<IActionResult> ExportRetentionCsv()
     {
-        var overview = await BuildRetentionOverviewAsync();
+        var overview = await retentionOverviewService.BuildAsync();
 
         var sb = new StringBuilder();
         sb.AppendLine("cohort,cohort_size," + string.Join(",", Enumerable.Range(0, overview.Cohorts.FirstOrDefault()?.RetentionByMonth.Count ?? 0).Select(i => $"month_{i}")));

@@ -1061,6 +1061,10 @@ namespace BKeeper.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("MemberId")
                         .HasColumnType("uuid");
 
+                    b.Property<string>("ModelType")
+                        .IsRequired()
+                        .HasColumnType("text");
+
                     b.Property<string>("ModelVersion")
                         .IsRequired()
                         .HasColumnType("text");
@@ -1080,7 +1084,7 @@ namespace BKeeper.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("BoxId", "MemberId", "SnapshotWeek")
+                    b.HasIndex("BoxId", "MemberId", "SnapshotWeek", "ModelType")
                         .IsUnique();
 
                     b.ToTable("RiskScores");
