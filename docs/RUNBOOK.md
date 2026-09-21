@@ -74,6 +74,11 @@ numbers as an engineering sanity check, not a performance claim.
   single-box only; see OPEN_QUESTIONS.md on whether multi-box-per-deployment is ever needed).
 - **A password/JWT signing key needs rotating**: set `JWT_SIGNING_KEY` in the environment before
   `docker compose up` — rotating it invalidates all existing sessions immediately (no rolling rotation).
+- **Turning on AI retention summaries**: set `ANTHROPIC_API_KEY` in the environment before
+  `docker compose up` (optionally `ANTHROPIC_MODEL`, default `claude-opus-5`). Unset/empty by default —
+  the "Get AI summary" button on the retention dashboard stays disabled and `POST /insights/narrative`
+  returns a `NotConfigured` status instead of erroring. No DB access or metric computation ever happens
+  inside the LLM call — see `AnthropicNarrativeGenerator`'s guardrail system prompt.
 
 ## Known operational gaps (see OPEN_QUESTIONS.md for the full list)
 
