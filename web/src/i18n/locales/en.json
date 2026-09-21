@@ -1,11 +1,5 @@
 {
   "nav": {
-    "members": "Members",
-    "alerts": "Alert inbox",
-    "dashboards": "Dashboards",
-    "coaches": "Coaches",
-    "import": "Import",
-    "settings": "Settings"
     "groups": {
       "dashboard": "Dashboard",
       "athletes": "Athletes",
@@ -29,7 +23,8 @@
       "alertInbox": "Alert inbox"
     },
     "classes": {
-      "analytics": "Schedule & attendance"
+      "analytics": "Schedule & attendance",
+      "coaches": "Coaches"
     },
     "insights": {
       "retention": "Retention trends",
@@ -157,7 +152,7 @@
       "tenureTitle": "Tenure at churn",
       "tenureHint": "How long members stuck around before cancelling.",
       "coachFilter": "Coach",
-      "allCoaches": "All coaches (box-wide)"
+      "allCoaches": "All coaches (box-wide)",
       "aiSummary": {
         "title": "AI summary",
         "hint": "An AI-generated explanation of the retention numbers above — it only ever describes the data shown here, never new numbers.",
