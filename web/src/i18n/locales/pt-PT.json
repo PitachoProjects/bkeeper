@@ -1,10 +1,41 @@
 {
   "nav": {
-    "members": "Membros",
-    "alerts": "Caixa de alertas",
-    "dashboards": "Painéis",
-    "import": "Importar",
-    "settings": "Definições"
+    "groups": {
+      "dashboard": "Painel",
+      "athletes": "Atletas",
+      "classes": "Aulas",
+      "insights": "Análises",
+      "reports": "Relatórios",
+      "configuration": "Configuração"
+    },
+    "dashboard": {
+      "overview": "Visão geral",
+      "attendance": "Frequência",
+      "interventions": "Intervenções",
+      "myWeek": "A minha semana"
+    },
+    "athletes": {
+      "all": "Todos os atletas",
+      "atRisk": "Em risco",
+      "earlyWarning": "Alerta precoce",
+      "new": "Novos atletas",
+      "inactive": "Inativos",
+      "alertInbox": "Caixa de alertas"
+    },
+    "classes": {
+      "analytics": "Horário e frequência"
+    },
+    "insights": {
+      "retention": "Tendências de retenção",
+      "alertOutcomes": "Resultados dos alertas"
+    },
+    "reports": {
+      "retention": "Relatório de retenção"
+    },
+    "configuration": {
+      "general": "Geral",
+      "import": "Importação de dados"
+    }
   },
   "theme": { "light": "Claro", "dark": "Escuro" },
   "signOut": "Terminar sessão",
@@ -19,7 +50,13 @@
     "tenure": "Antiguidade",
     "empty": "Ainda sem membros — experimente a página de Importação.",
     "allStatuses": "Todos os estados",
-    "statuses": { "Active": "Ativo", "Frozen": "Congelado", "Cancelled": "Cancelado", "Lapsed": "Inativo" }
+    "statuses": { "Active": "Ativo", "Frozen": "Congelado", "Cancelled": "Cancelado", "Lapsed": "Inativo" },
+    "presets": {
+      "atRisk": { "title": "Em risco", "hint": "Membros com um alerta crítico (vermelho) em aberto." },
+      "earlyWarning": { "title": "Alerta precoce", "hint": "Membros com um alerta de alta prioridade (âmbar) em aberto." },
+      "new": { "title": "Novos atletas", "hint": "Inscritos nos últimos 30 dias." },
+      "inactive": { "title": "Inativos", "hint": "Membros cancelados ou inativos." }
+    }
   },
   "settings": {
     "title": "Definições",
