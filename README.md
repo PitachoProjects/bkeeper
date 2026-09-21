@@ -20,12 +20,31 @@ Retention platform for CrossFit boxes — see [docs/PLAN.md](docs/PLAN.md) for t
 docker compose up -d --build
 ```
 
-By default the API/Worker connect to the local `postgres` container. To point at a remote
-Postgres instance instead (e.g. Supabase), copy `.env.example` to `.env` and set
-`DATABASE_CONNECTION_STRING` — `docker compose` picks up `.env` automatically. See the comments
-in `.env.example` for the Supabase-specific gotcha (use the **Session pooler** connection string,
-not the direct connection host, which is IPv6-only and unreachable from most networks). `.env` is
-gitignored — never commit real credentials.
+By default the API/Worker connect to the local `postgres` container — this holds regardless of
+`ASPNETCORE_ENVIRONMENT`, since `docker-compose.yml` sets `ConnectionStrings__Postgres` explicitly.
+To point Docker at a remote Postgres instead for a one-off (e.g. to run migrations against
+Supabase — see below), copy `.env.example` to `.env` and set `DATABASE_CONNECTION_STRING` —
+`docker compose` picks it up automatically. `.env` is gitignored — never commit real credentials.
+
+### Production (Supabase)
+
+`appsettings.Production.json` (API and Worker) points at the Supabase **Session pooler** host —
+the direct-connection host is IPv6-only and unreachable from most networks/hosts, so always use
+the pooler string from Supabase's dashboard (Project Settings → Database → Connection string).
+The file deliberately omits the password: Npgsql reads it from the `PGPASSWORD` environment
+variable at startup, so the real credential never lives in this (public) repo. To run in
+production mode: `ASPNETCORE_ENVIRONMENT=Production PGPASSWORD=<db-password> dotnet BKeeper.Api.dll`
+(same for the Worker), or set both as env vars on whatever host/platform runs the containers.
+
+**First-time setup against a fresh Supabase database:**
+1. Create the schema by pointing the API at Supabase once via the `.env` override above (full
+   connection string including the password) and starting it — `Database.Migrate()` runs on
+   startup (`src/BKeeper.Api/Program.cs`) and creates all tables.
+2. Copy over existing local data with `scripts/migrate_to_supabase.sh` (dumps `bkeeper-postgres`
+   and restores into Supabase — see the script header for the required `SUPABASE_*`/`PGPASSWORD`
+   env vars). Safe to run once against an empty target; not a sync tool.
+3. Revert the `.env` override (or delete `.env`) so local Docker runs go back to the local DB, and
+   run the app for real with `ASPNETCORE_ENVIRONMENT=Production` + `PGPASSWORD` as above.
 
 - API: http://localhost:5080 (Swagger at `/swagger`, health at `/health`)
 - Web: http://localhost:5173
