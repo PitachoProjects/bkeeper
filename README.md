@@ -7,7 +7,7 @@ Retention platform for CrossFit boxes — see [docs/PLAN.md](docs/PLAN.md) for t
 
 ## Stack
 
-- **Backend:** .NET 8 (`BKeeper.Api`, `BKeeper.Worker`), EF Core + PostgreSQL, Hangfire
+- **Backend:** .NET 10 (`BKeeper.Api`, `BKeeper.Worker`), EF Core + PostgreSQL, Hangfire
 - **ML:** Python 3.12 + FastAPI + scikit-learn + LightGBM + SHAP (`ml/`) — churn-risk scoring, shadow mode
 - **Frontend:** Vue 3 + TypeScript + Vite + Pinia + Vue Router (`web/`)
 - **Infra:** Docker Compose (project name `bkeeper`) — Postgres, API, Worker, ML, Web as five
@@ -90,6 +90,30 @@ cd web && npm install && npm run dev
 dotnet test src/BKeeper.Tests.Unit
 cd ml && python -m pytest tests/
 ```
+
+## Deploy (Azure)
+
+Two GitHub Actions workflows push `master` straight to Azure on every relevant change:
+
+- **Frontend** — `.github/workflows/azure-static-web-apps-proud-desert-0db9c9403.yml` builds `web/`
+  and deploys it to the Azure Static Web App at
+  https://proud-desert-0db9c9403.5.azurestaticapps.net. Requires the
+  `AZURE_STATIC_WEB_APPS_API_TOKEN_PROUD_DESERT_0DB9C9403` repo secret (from the Static Web App's
+  deployment token). `web/staticwebapp.config.json` adds the SPA fallback rewrite Vue Router's
+  history mode needs.
+- **API** — `.github/workflows/azure-webapp-api.yml` builds `src/BKeeper.Api` with the .NET 10 SDK
+  and zip-deploys it to the Linux Web App at
+  https://bkeeper-api-gqfub3ebf5gyeshr.westeurope-01.azurewebsites.net (App Service runtime stack:
+  `.NET 10`). Requires the `AZURE_WEBAPP_PUBLISH_PROFILE_API` repo secret (download the publish
+  profile from the Web App's **Overview → Get publish profile** in the Azure Portal and paste its
+  XML contents in as the secret value).
+
+Swagger is served at `/swagger` in every environment, including the deployed Web App, so the live
+API contract is browsable at
+https://bkeeper-api-gqfub3ebf5gyeshr.westeurope-01.azurewebsites.net/swagger. The Web App also needs
+its own app settings for `ConnectionStrings__Postgres`, `Jwt__SigningKey`, etc. — see
+`src/BKeeper.Api/appsettings.json` for the full set of keys; `appsettings.Production.json` only pins
+`Cors:AllowedOrigins` to the Static Web App's origin.
 
 ## Repo layout
 
