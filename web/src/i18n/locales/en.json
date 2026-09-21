@@ -9,6 +9,16 @@
   "theme": { "light": "Light", "dark": "Dark" },
   "signOut": "Sign out",
   "severity": { "Info": "Regular", "Amber": "High", "Red": "Critical" },
+  "explainThis": {
+    "trigger": "What does this mean?",
+    "loading": "Loading…",
+    "error": "Couldn't load explanation.",
+    "definition": "Definition",
+    "howCalculated": "How it's calculated",
+    "period": "Period",
+    "whyItMatters": "Why it matters",
+    "limitations": "Limitations"
+  },
   "members": {
     "title": "Members",
     "searchPlaceholder": "Search by name…",
@@ -68,6 +78,12 @@
   "dashboards": {
     "title": "Dashboards",
     "tabs": { "retention": "Retention", "alertOps": "Alert ops", "workouts": "Workouts", "myWeek": "My week" },
+    "periods": {
+      "asOfToday": "as of today",
+      "thisMonth": "this calendar month",
+      "allTime": "all-time",
+      "next14Days": "next 14 days after outreach"
+    },
     "retention": {
       "active": "Active",
       "newThisMonth": "New this month",
