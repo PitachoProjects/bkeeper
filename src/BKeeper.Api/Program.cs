@@ -72,10 +72,13 @@ using (var scope = app.Services.CreateScope())
     db.Database.Migrate();
 }
 
-// Swagger is exposed in every environment (including the deployed Azure Web App) so the
-// API contract stays browsable at /swagger without needing ASPNETCORE_ENVIRONMENT=Development.
-app.UseSwagger();
-app.UseSwaggerUI();
+app.UseRouting();
+
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
 
 app.UseCors();
 app.UseRateLimiter();
