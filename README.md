@@ -131,7 +131,11 @@ Two GitHub Actions workflows push `master` straight to Azure on every relevant c
   `.NET 10`). Auth is OIDC federated credentials, not a publish profile — it needs the
   `AZUREAPPSERVICE_CLIENTID_...`, `AZUREAPPSERVICE_TENANTID_...` and
   `AZUREAPPSERVICE_SUBSCRIPTIONID_...` repo secrets that Azure's Deployment Center provisions
-  automatically when you connect GitHub Actions deployment from the Portal.
+  automatically when you connect GitHub Actions deployment from the Portal. Deploy runs
+  `az webapp deploy --clean true` (wipes `/home/site/wwwroot` before extracting, so nothing from
+  an earlier deploy can linger) and pins the Startup Command to `dotnet BKeeper.Api.dll` on every
+  run, so the Web App always knows how to launch the API instead of relying on Azure's
+  auto-detection.
 
 Swagger is served at `/swagger` in every environment, including the deployed Web App, so the live
 API contract is browsable at
