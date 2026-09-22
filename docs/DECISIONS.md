@@ -2,6 +2,174 @@
 
 Extends §2 of [PLAN.md](PLAN.md). Newest first.
 
+## D29 — Athlete Health Score engine (product spec, not in the original plan)
+A deterministic, configurable composite score (`HealthScore`/`HealthScoreConfiguration`,
+[src/BKeeper.Application/HealthScoring/](../src/BKeeper.Application/HealthScoring/)) distinct from the
+shadow-mode ML `RiskScore` (R13) and the survey-only `engagement_index` in `EvaluationScorer` — this
+combines Attendance, Consistency, Booking behaviour, Progress and Engagement into one 0-100 number,
+visible to Coach/Manager/Owner (not shadow-mode; it's explainable and rule-based, not a prediction).
+- **Weights are versioned, not edited in place**: `HealthScoreConfiguration` is box-scoped and
+  immutable per version (mirrors `EvaluationForm.Version`, since `RuleConfig` itself turned out to have
+  no version history to reuse — it's a single mutable row per rule code). A `PUT /health-score/config`
+  deactivates the current version and inserts a new one; every `HealthScore` row keeps the
+  `ConfigVersion` that was active when it was calculated, so re-weighting today never rewrites
+  yesterday's stored scores (tested in `HealthScoreJobTests`).
+- **Progress factor** proxies the spec's Benchmark/PR data with `Goal`/`GoalProgress` — the only
+  progress-tracking entity this codebase has (no Benchmark/PR entity exists, and the task explicitly
+  ruled out building one). A member with no active goals gets an explicit `no_goals` outcome and is
+  excluded from the weighted denominator (renormalized away), never scored as failing.
+- **Per-factor "no data" renormalizes, never fails to 0**: `HealthScoreComposer` drops any disabled or
+  no-data factor from both the numerator and the weight denominator, so the remaining factors' weights
+  scale back up to 100 — e.g. dropping Engagement (weight 10) rescales Attendance from 35 to 35/90×100.
+- **Cold start**: below configurable tenure-days/session-count minimums, the whole score is
+  `InsufficientData` (no numeric score at all) — but `TenureDays`/`SessionCount` are still recorded so
+  the UI can show "not enough history yet, but here's what we know" instead of a blank card.
+- **No MemberWeek dependency**: the plan's own "rebuild MemberWeek, then score" ordering doesn't apply
+  here because nothing in this codebase populates `MemberWeek` yet (see docs/OPEN_QUESTIONS.md — a
+  pre-existing Week 3 gap, not something this pass fixes, per the task's own scope limits). The
+  `HealthScoreJob` reads booking facts directly and reuses `MetricsBuilder`/`AttendanceMetrics`, the
+  same way `DailyRulePipeline` and `MlScoringJob` already do. It runs daily at 05:50, after
+  `daily-rule-pipeline` (05:30) and `goals-evaluations-job` (05:45).
+- **Engagement factor** uses `EvaluationScorer.EngagementIndex` averaged across evaluation responses in
+  the config's window. Blending in evaluation-form *participation rate* (sent vs. answered links) is a
+  reasonable extension the spec allows for ("and/or") but wasn't built here — see follow-ups below.
+- **Not built** (flagged for a human reviewer): participation-rate blending into Engagement; a
+  Manager-facing audit *history* view for config changes (the `AuditLog` rows exist — `GET /health-score/config`
+  only returns the current version, there's no `GET /health-score/config/history` endpoint yet);
+  sliders in the Settings UI (number inputs were used instead, consistent with the rest of Settings'
+  plain-input style); and box time-zone-aware "calculation date" (like the rest of this codebase, the
+  job uses UTC `DateTime.UtcNow` rather than the box's configured time zone).
+
+## D28 — Metric definition registry + "Explain This" pattern
+Plan §5's canonical metric definitions existed only as prose plus scattered formulas in
+`AttendanceMetrics.cs`/`MetricsBuilder.cs`/`DashboardsController.cs`. Added a queryable registry so
+that stays true as the app grows, and a reusable frontend affordance to surface it in place:
+- `MetricDefinition` ([src/BKeeper.Domain/Entities/MetricDefinition.cs](../src/BKeeper.Domain/Entities/MetricDefinition.cs)) is **global reference
+  data, not `BoxScopedEntity`** — every box shares one catalog of formulas, unlike per-box data such
+  as `EvaluationForm`. Seeded via EF Core migration `HasData` (`AddMetricDefinitions`) from a single
+  source-of-truth list, `MetricDefinitionCatalog.All` ([src/BKeeper.Application/Metrics/MetricDefinitionCatalog.cs](../src/BKeeper.Application/Metrics/MetricDefinitionCatalog.cs)) —
+  19 entries covering every number `DashboardsController`'s retention/alert-ops/workouts endpoints
+  return, plus the member-level rule inputs (`AttendanceMetrics`/`MetricsBuilder`) R01-R04 consume.
+  Read-only for this pass, matching the task's own scope: no admin CRUD UI to edit definitions yet.
+- Each definition's formula is transcribed from the real code, not invented — where the plan's prose
+  definition (§5) and what's actually computed diverge (e.g. `active_members` doesn't cross-check
+  membership validity; `churned_members_this_month` excludes lapsed members; the box-level workout
+  heatmap approximates but isn't the per-member "usual window"/"type mix" plan §5 describes, since
+  `MemberProfile` isn't populated per D24), that gap is spelled out in the entry's `Limitations` field
+  rather than smoothed over. There is no separately computed "cancellation rate" distinct from
+  no-shows in the codebase today — `member_no_show_rate_8w` documents R04's actual combined
+  no-show/late-cancel formula and says so explicitly.
+- `GET /metric-definitions` (active list) and `GET /metric-definitions/{key}` (full explain-this
+  content: definition, how it's calculated, period, why it matters, limitations) —
+  `MetricDefinitionsController`, `[Authorize]` like the rest of the API, no new roles.
+- `ExplainThis.vue` — a small "ⓘ What does this mean?" trigger that expands inline and lazy-fetches
+  `/metric-definitions/{key}` (cached per key across instances on the page, since the same metric can
+  appear more than once). Wired into `DashboardsView.vue`'s retention tab (active/new/churned/net/
+  monthly-churn/lapsed, the cohort curve, the tenure-at-churn histogram) and alert-ops tab (SLA
+  compliance, avg time to claim, save rate, holdout/treated return rate) — the highest-traffic
+  dashboard numbers, per the task's own priority call. Every wired stat also gained an explicit period
+  caption ("this calendar month", "all-time", "next 14 days after outreach", …) sourced from new
+  `dashboards.periods.*` i18n keys, addressing the same "don't leave a rate's comparison window
+  implicit" goal the registry itself serves. Chrome strings (`explainThis.*`) are localized EN/PT-PT;
+  the metric content itself (name/definition/formula/…) is API-sourced and English-only, per the task.
+- **Not built** (explicitly out of scope for this pass): an admin UI to edit definitions, wiring
+  `ExplainThis` into the workouts/my-week tabs or the member-detail rule-input numbers, and the
+  health-score-engine/LLM-narrative work that reads a registry like this — those are separate,
+  parallel efforts.
+
+## D27 — Stage B statistical baseline (logistic regression) alongside the Stage C LightGBM ensemble
+Plan §8's own roadmap (rules → interpretable statistics → gradient boosting) was skipped straight
+from rules to LightGBM in D23 (Week 8). This fills the gap: a standalone, calibrated logistic
+regression, registered and served as a genuinely separate, comparable model — not folded into the
+existing ensemble the way `train.py`'s internal `logreg` component already was (that one exists
+only to be averaged with `lgbm`; it was never independently evaluated, calibrated or exposed).
+- **Reuses, never duplicates, the shared foundation**: `ml/app/logistic.py` imports `build_features`
+  (`app/features.py`) and `build_snapshots`/`temporal_split` (`app/train.py`) directly — same
+  point-in-time correctness, same `tests/test_no_leakage.py` coverage, same time-based (not random)
+  split. `ml/app/metrics.py` is new and shared too: precision/recall@k, ROC-AUC, PR-AUC, lift and
+  quantile-binned calibration, computed identically for both models so `backtest_compare.py` (new
+  script) can put them side by side on the same split. `train.py`'s own `evaluate()` gained the same
+  precision/recall/calibration fields (additively — every previously-returned key is unchanged) so
+  the two are actually comparable, not just individually reported.
+- **Calibration**: `CalibratedClassifierCV` (sigmoid/Platt, 5-fold) wraps the logistic regression
+  when training data has enough positives (≥20 per class); below that it falls back to the plain
+  fit rather than risk near-empty CV folds. The bundle also keeps the plain (uncalibrated) fit
+  purely for the coefficient report — a `CalibratedClassifierCV`'s per-fold coefficients aren't one
+  readable vector, but the plain fit on the same training set is, and standardized-feature
+  coefficients are the whole point of Stage B (direction + relative magnitude, no SHAP).
+- **Registry**: `model_registry.save`/`load_current` gained an optional `model_type` parameter
+  (default `"lightgbm_ensemble"`, matching every existing call site's behavior exactly — same file
+  names, same `current.txt` pointer) rather than a parallel registry module. A non-default
+  `model_type` gets its own file prefix and its own pointer file (`current-logistic_regression.txt`),
+  so `python -m app.train` and `python -m app.logistic` can be run independently and neither
+  overwrites the other's registered version.
+- **Serving**: `serve.py` loads and self-trains both models at startup (same synthetic-fallback
+  pattern D23 already established for the LightGBM ensemble) and gained `POST /score/logistic`
+  (interpretable reasons via the new `explain.top_reasons_linear` — coefficient × this member's
+  standardized value, not SHAP) alongside the unchanged `/score`. Both responses now carry
+  `model_type`; a new `GET /models` reports both models' registered metadata without retraining
+  (this was Appendix A's never-built `GET /models`).
+- **.NET**: `RiskScore` gained `ModelType` (migration `AddRiskScoreModelType`); the uniqueness index
+  is now `(BoxId, MemberId, SnapshotWeek, ModelType)` so a member has one row per model per week,
+  not one overall. `IMlScoringClient` gained `ScoreLogisticAsync` alongside the unchanged
+  `ScoreAsync`; `MlScoringJob` calls both every run and upserts each model's row independently.
+  `RiskScoresController`'s existing endpoints default to `lightgbm_ensemble` (unchanged shape/
+  behavior for existing callers) and gained `GET /risk-scores/members/{id}/compare` for the
+  side-by-side Manager/Owner view. Same Manager/Owner-only gate, same shadow-mode guarantee: neither
+  model creates an alert.
+- **Synthetic-data comparison** (`backtest_compare.py`, seed 42, 600 members/104 weeks, same split
+  both models see): ROC-AUC 0.853 vs. 0.853, PR-AUC 0.267 vs. 0.259, precision@top-5% 0.254 vs.
+  0.257 — logistic regression matches the LightGBM ensemble almost exactly on this synthetic
+  population, with a fully readable coefficient table the ensemble doesn't have. Expected, given how
+  linearly these 16 features were designed (plan §8) and how the generator itself works
+  (`synthetic.py`) — **not evidence either model will perform this way on real data** (same caveat
+  as D23 and OPEN_QUESTIONS.md).
+- **Not built**: real-data retraining, isotonic calibration (sigmoid was chosen over isotonic
+  because isotonic needs more positives per bin than this synthetic run reliably has; plan §8's own
+  isotonic threshold is 1,500 positives), drift monitoring, and a UI comparison view (the `/compare`
+  endpoint and `backtest_compare.py`'s table are the only surfaces today — plan requirement 6 asked
+  for a script, not a dashboard).
+
+## D26 — AI narrative layer: explains validated analytics, never computes them (plan §16.8, partial)
+`POST /insights/narrative` (Manager/Owner only, same gate as `RiskScoresController`) turns the
+already-computed `RetentionOverviewDto` into a plain-language summary via Anthropic's Messages API —
+a first, self-contained slice of the plan's §16.8 "agent layer" vision ("summarises member history,
+answers 'who is at risk and why'"), scoped down to one narrow, human-triggered question
+("what changed in retention this period") rather than open-ended chat.
+- **Hard architectural rule, enforced by construction, not just by prompt**: `INarrativeGenerator`
+  ([src/BKeeper.Application/Insights/INarrativeGenerator.cs](../src/BKeeper.Application/Insights/INarrativeGenerator.cs))
+  takes a scope name and a JSON string — never a DB context, never a query — so the LLM implementation
+  has no way to reach the database even if the prompt guardrails failed. `NarrativeInsightsService`
+  builds that JSON by serializing the exact same `RetentionOverviewDto` `DashboardsController` already
+  returns (via a newly-extracted `IRetentionOverviewService` — the query logic moved out of the
+  controller so both callers share one computation, no second implementation to drift).
+- **Guardrails live in the system prompt** (`AnthropicNarrativeGenerator`): forbidden from citing any
+  number not present in the JSON payload, forbidden from causal/diagnostic claims about a member
+  ("this athlete is demotivated") in favour of associative language ("is associated with", "may
+  indicate"), required to say "not enough data" rather than guess, and required to answer in three
+  labelled sections (FACTS/SIGNALS/INSIGHT) so the frontend can render AI output visibly distinct from
+  the deterministic numbers it's explaining. The evidence JSON is returned alongside the narrative
+  (`GET`'s response includes `evidence`) so staff can see exactly what the summary was based on —
+  "never hide the methodology."
+- **HTTP client, not the Anthropic SDK**: follows the same pattern as `HttpMlScoringClient` (typed
+  `HttpClient`, options-bound config, catches everything and returns a graceful `Error`/`NotConfigured`
+  result — never throws into the request pipeline) rather than adding a new SDK dependency for one
+  endpoint.
+- **Gracefully disabled with no API key** (the default in every environment that hasn't set one):
+  `AnthropicOptions.ApiKey` is empty in `appsettings.json` and in `docker-compose.yml` unless
+  `ANTHROPIC_API_KEY` is set; `INarrativeGenerator.IsConfigured` lets both the API (`GET /insights/status`)
+  and the frontend check this without spending a paid call. `NoOpNarrativeGenerator` is the always-off
+  double used in tests.
+- **Frontend**: a "Get AI summary" card on the retention tab, fetched only on click (never on page
+  load — it costs money per call), clearly labelled "AI-generated," with the evidence JSON behind a
+  `<details>` toggle. The button disables with a tooltip instead of erroring when the backend reports
+  `configured: false`.
+- **Not built**: any scope beyond `retention-overview` (alert-ops and workout-mix narratives would
+  follow the identical pattern — swap the DTO, add a case to `ScopeInstruction`), streaming responses,
+  and per-box customization of the system prompt. Deliberately does not depend on or wire into the
+  metric-definition-registry's "Explain This" pattern (separate parallel work) — this card is
+  self-contained.
+
 ## D25 — Weeks 10-11: connector contract (not an implementation), rate limiting, GDPR tooling, backup drill
 **Week 10 is intentionally left as a contract, not an implementation.** The plan's own instruction is
 "implement the connector for the chosen platform after reading its API docs — do not assume

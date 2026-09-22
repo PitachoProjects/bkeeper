@@ -57,12 +57,29 @@ public class MlScoringJob(BKeeperDbContext db, CurrentBoxAccessor currentBox, IM
             requests.Add(new MlMemberScoreRequest(member.Id, member.JoinDate, null, snapshotWeek, mlFacts));
         }
 
-        var results = await mlClient.ScoreAsync(requests, ct);
-        var scored = 0;
+        // Stage C (LightGBM ensemble) stays the primary/default view R13 would use if it ever goes
+        // live; Stage B (logistic regression) is scored the same shadow-mode way, purely for the
+        // Manager/Owner comparison view (RiskScoresController) — see docs/DECISIONS.md.
+        var primaryResults = await mlClient.ScoreAsync(requests, ct);
+        var comparisonResults = await mlClient.ScoreLogisticAsync(requests, ct);
 
+        var scored = await UpsertRiskScoresAsync(boxId, snapshotWeek, primaryResults, ct);
+        await UpsertRiskScoresAsync(boxId, snapshotWeek, comparisonResults, ct);
+
+        await db.SaveChangesAsync(ct);
+        logger.LogInformation(
+            "ML scoring (shadow) for box {BoxId}: {Primary} scored by {PrimaryModel}, {Comparison} scored by {ComparisonModel}",
+            boxId, primaryResults.Count, MlModelTypes.LightGbmEnsemble, comparisonResults.Count, MlModelTypes.LogisticRegression);
+        return scored;
+    }
+
+    private async Task<int> UpsertRiskScoresAsync(Guid boxId, DateOnly snapshotWeek, IReadOnlyList<MlMemberScoreResult> results, CancellationToken ct)
+    {
+        var scored = 0;
         foreach (var result in results)
         {
-            var existing = await db.RiskScores.FirstOrDefaultAsync(r => r.MemberId == result.MemberId && r.SnapshotWeek == snapshotWeek, ct);
+            var existing = await db.RiskScores.FirstOrDefaultAsync(
+                r => r.MemberId == result.MemberId && r.SnapshotWeek == snapshotWeek && r.ModelType == result.ModelType, ct);
             if (existing is null)
             {
                 db.RiskScores.Add(new RiskScore
@@ -71,6 +88,7 @@ public class MlScoringJob(BKeeperDbContext db, CurrentBoxAccessor currentBox, IM
                     MemberId = result.MemberId,
                     SnapshotWeek = snapshotWeek,
                     ModelVersion = result.ModelVersion,
+                    ModelType = result.ModelType,
                     PChurn28d = result.PChurn28d,
                     Band = result.Band,
                     TopReasons = result.TopReasons.ToList(),
@@ -86,9 +104,6 @@ public class MlScoringJob(BKeeperDbContext db, CurrentBoxAccessor currentBox, IM
             }
             scored++;
         }
-
-        await db.SaveChangesAsync(ct);
-        logger.LogInformation("ML scoring (shadow) for box {BoxId}: {Scored} members scored", boxId, scored);
         return scored;
     }
 

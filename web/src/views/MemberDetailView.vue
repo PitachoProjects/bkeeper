@@ -3,8 +3,24 @@ import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { api } from '@/lib/api'
+import { severityLabel } from '@/lib/labels'
 import { useAuthStore } from '@/stores/auth'
 import RadarChart from '@/components/RadarChart.vue'
+import ScoreRing from '@/components/ScoreRing.vue'
+
+interface OpenAlertItem {
+  id: string
+  family: string
+  severity: string
+  status: string
+  dueAt: string
+  ruleCodes: string[]
+}
+
+interface RuleCatalogItem {
+  code: string
+  description: string
+}
 
 interface MemberDetail {
   id: string
@@ -81,22 +97,84 @@ interface RiskScore {
   modelVersion: string
 }
 
+interface HealthScoreFactor {
+  factor: string
+  score: number | null
+  weight: number
+  contribution: number
+  included: boolean
+  reason: string | null
+}
+
+interface HealthScoreItem {
+  memberId: string
+  calculationDate: string
+  configVersion: number
+  overallScore: number | null
+  insufficientData: boolean
+  tenureDays: number
+  sessionCount: number
+  factors: HealthScoreFactor[]
+  calculatedAt: string
+}
+
+const FACTOR_ORDER = ['Attendance', 'Consistency', 'BookingBehaviour', 'Progress', 'Engagement']
+
 interface WorkoutMixItem {
   tag: string
   count: number
 }
 
+interface PaymentItem {
+  id: string
+  memberId: string
+  membershipId: string | null
+  amount: number
+  currency: string
+  paymentDate: string
+  status: string
+  method: string
+  notes: string | null
+}
+
 const { t } = useI18n()
 const GOAL_CATEGORIES = ['Strength', 'Skill', 'BodyComposition', 'Endurance', 'CompetitionEvent', 'HealthRehab', 'Consistency', 'Social']
 const TIMELINE_FILTERS = ['note', 'Attended', 'NoShow', 'LateCancel']
+const PAYMENT_STATUSES = ['Completed', 'Refunded', 'Failed']
+const PAYMENT_METHODS = ['Card', 'Cash', 'Transfer', 'Other']
 
 const route = useRoute()
 const memberId = route.params.id as string
 const auth = useAuthStore()
 const canSeeRisk = computed(() => auth.role === 'Manager' || auth.role === 'Owner')
+const canSeePayments = computed(() => auth.role === 'Owner' || auth.role === 'Manager' || auth.role === 'Reception')
+const canManageTriggers = computed(() => auth.role === 'Manager' || auth.role === 'Owner')
+
+const openAlerts = ref<OpenAlertItem[]>([])
+const worstOpenSeverity = computed(() => {
+  if (openAlerts.value.some((a) => a.severity === 'Red')) return 'red'
+  if (openAlerts.value.some((a) => a.severity === 'Amber')) return 'amber'
+  return openAlerts.value.length > 0 ? 'info' : ''
+})
+const recomputingHealthScore = ref(false)
+const rerunningRules = ref(false)
+const triggerMessage = ref('')
+const ruleDescriptions = ref<Record<string, string>>({})
 
 const member = ref<MemberDetail | null>(null)
 const riskScore = ref<RiskScore | null>(null)
+const healthScore = ref<HealthScoreItem | null>(null)
+const healthScoreHistory = ref<HealthScoreItem[]>([])
+const orderedFactors = computed(() =>
+  healthScore.value ? [...healthScore.value.factors].sort((a, b) => FACTOR_ORDER.indexOf(a.factor) - FACTOR_ORDER.indexOf(b.factor)) : [],
+)
+const healthScoreBand = computed(() => {
+  const score = healthScore.value?.overallScore
+  if (score === null || score === undefined) return ''
+  if (score >= 75) return 'green'
+  if (score >= 50) return 'amber'
+  return 'red'
+})
 const notes = ref<MemberNote[]>([])
 const timeline = ref<TimelineItem[]>([])
 const consent = ref<Consent[]>([])
@@ -113,13 +191,26 @@ const progressGoalId = ref<string | null>(null)
 const progressValue = ref('')
 const progressDate = ref(new Date().toISOString().slice(0, 10))
 const sentFormLink = ref('')
+const payments = ref<PaymentItem[]>([])
+const showAddPayment = ref(false)
+const newPayment = ref({ amount: '', currency: 'EUR', paymentDate: new Date().toISOString().slice(0, 10), status: 'Completed', method: 'Card', notes: '' })
 const timelineFilter = ref('')
 const timelineFiltered = computed(() =>
   timelineFilter.value ? timeline.value.filter((t) => t.type === timelineFilter.value) : timeline.value,
 )
+const TIMELINE_PAGE_SIZE = 10
+const timelinePage = ref(1)
+const timelineTotalPages = computed(() => Math.max(1, Math.ceil(timelineFiltered.value.length / TIMELINE_PAGE_SIZE)))
+const timelinePageItems = computed(() =>
+  timelineFiltered.value.slice((timelinePage.value - 1) * TIMELINE_PAGE_SIZE, timelinePage.value * TIMELINE_PAGE_SIZE),
+)
+function setTimelineFilter(f: string) {
+  timelineFilter.value = f
+  timelinePage.value = 1
+}
 
 async function load() {
-  ;[member.value, notes.value, timeline.value, consent.value, outreach.value, goals.value, forms.value, workoutMix.value] = await Promise.all([
+  ;[member.value, notes.value, timeline.value, consent.value, outreach.value, goals.value, forms.value, workoutMix.value, openAlerts.value] = await Promise.all([
     api.get<MemberDetail>(`/members/${memberId}`),
     api.get<MemberNote[]>(`/members/${memberId}/notes`),
     api.get<TimelineItem[]>(`/members/${memberId}/timeline`),
@@ -128,11 +219,36 @@ async function load() {
     api.get<GoalItem[]>(`/members/${memberId}/goals`),
     api.get<FormSummary[]>('/forms'),
     api.get<WorkoutMixItem[]>(`/members/${memberId}/workout-mix`),
+    api.get<OpenAlertItem[]>(`/alerts?memberId=${memberId}`),
   ])
 
   if (canSeeRisk.value) {
     riskScore.value = await api.get<RiskScore | null>(`/risk-scores/members/${memberId}`)
   }
+
+  ;[healthScore.value, healthScoreHistory.value] = await Promise.all([
+    api.get<HealthScoreItem | null>(`/members/${memberId}/health-score`),
+    api.get<HealthScoreItem[]>(`/members/${memberId}/health-score/history`),
+  ])
+  if (canSeePayments.value) {
+    payments.value = await api.get<PaymentItem[]>(`/members/${memberId}/payments`)
+  }
+}
+
+async function addPayment() {
+  if (!newPayment.value.amount || Number(newPayment.value.amount) <= 0) return
+  const payment = await api.post<PaymentItem>(`/members/${memberId}/payments`, {
+    membershipId: null,
+    amount: Number(newPayment.value.amount),
+    currency: newPayment.value.currency || 'EUR',
+    paymentDate: newPayment.value.paymentDate,
+    status: newPayment.value.status,
+    method: newPayment.value.method,
+    notes: newPayment.value.notes || null,
+  })
+  payments.value = [payment, ...payments.value]
+  newPayment.value = { amount: '', currency: 'EUR', paymentDate: new Date().toISOString().slice(0, 10), status: 'Completed', method: 'Card', notes: '' }
+  showAddPayment.value = false
 }
 
 async function addGoal() {
@@ -194,7 +310,35 @@ async function removeNote(noteId: string) {
   notes.value = notes.value.filter((n) => n.id !== noteId)
 }
 
-onMounted(load)
+async function recomputeHealthScore() {
+  recomputingHealthScore.value = true
+  triggerMessage.value = ''
+  try {
+    await api.post(`/health-score/run?memberId=${memberId}`)
+    await load()
+    triggerMessage.value = t('memberDetail.manualTriggers.done')
+  } finally {
+    recomputingHealthScore.value = false
+  }
+}
+
+async function rerunRules() {
+  rerunningRules.value = true
+  triggerMessage.value = ''
+  try {
+    await api.post(`/rules/run?memberId=${memberId}`)
+    await load()
+    triggerMessage.value = t('memberDetail.manualTriggers.done')
+  } finally {
+    rerunningRules.value = false
+  }
+}
+
+onMounted(async () => {
+  const rules = await api.get<RuleCatalogItem[]>('/rules')
+  ruleDescriptions.value = Object.fromEntries(rules.map((r) => [r.code, r.description]))
+  await load()
+})
 </script>
 
 <template>
@@ -202,18 +346,113 @@ onMounted(load)
     <h1>{{ member.name }}</h1>
     <p class="meta">{{ member.email }} · {{ member.phone }} · {{ t('memberDetail.joined') }} {{ member.joinDate }}</p>
 
+    <div v-if="openAlerts.length > 0" class="alert-banner" :class="worstOpenSeverity">
+      <div class="alert-banner-header">
+        <span class="badge" :class="worstOpenSeverity">{{ openAlerts.length }}</span>
+        <span>{{ t('memberDetail.openAlerts.title') }}</span>
+        <RouterLink to="/alerts" class="view-all">{{ t('memberDetail.openAlerts.viewAll') }}</RouterLink>
+      </div>
+      <ul class="alert-banner-list">
+        <li v-for="a in openAlerts" :key="a.id">
+          <span class="badge" :class="a.severity.toLowerCase()">{{ severityLabel(a.severity) }}</span>
+          <span class="family">{{ a.family }}</span>
+          <span v-for="code in a.ruleCodes" :key="code" class="badge rule-chip" :title="ruleDescriptions[code] ?? code">{{ code }}</span>
+          <span class="date">{{ t('alerts.due') }}: {{ new Date(a.dueAt).toLocaleString() }}</span>
+        </li>
+      </ul>
+    </div>
+
+    <div v-if="canManageTriggers" class="manual-triggers">
+      <button class="ghost" :disabled="recomputingHealthScore" :title="t('memberDetail.manualTriggers.recomputeHealthScoreHint')" @click="recomputeHealthScore">
+        {{ recomputingHealthScore ? t('memberDetail.manualTriggers.running') : t('memberDetail.manualTriggers.recomputeHealthScore') }}
+      </button>
+      <button class="ghost" :disabled="rerunningRules" :title="t('memberDetail.manualTriggers.rerunRulesHint')" @click="rerunRules">
+        {{ rerunningRules ? t('memberDetail.manualTriggers.running') : t('memberDetail.manualTriggers.rerunRules') }}
+      </button>
+      <span v-if="triggerMessage" class="hint">{{ triggerMessage }}</span>
+    </div>
+
+    <h2 class="group-title">{{ t('memberDetail.groups.healthAndRisk') }}</h2>
+
     <section v-if="canSeeRisk" class="card">
       <h2>{{ t('memberDetail.risk.title') }} <span class="shadow-tag">{{ t('memberDetail.risk.shadowMode') }}</span></h2>
       <p class="hint">{{ t('memberDetail.risk.hint') }}</p>
       <div v-if="riskScore" class="risk-row">
-        <span class="badge" :class="riskScore.band">{{ riskScore.band }}</span>
+        <span class="badge" :class="riskScore.band">{{ t(`memberDetail.risk.bands.${riskScore.band}`) }}</span>
         <span class="text">{{ (riskScore.pChurn28d * 100).toFixed(1) }}% {{ t('memberDetail.risk.chance') }}</span>
         <span class="date">{{ t('memberDetail.risk.weekOf') }} {{ riskScore.snapshotWeek }} · {{ t('memberDetail.risk.model') }} {{ riskScore.modelVersion }}</span>
       </div>
       <ul v-if="riskScore && riskScore.topReasons.length" class="reasons">
         <li v-for="(r, i) in riskScore.topReasons" :key="i">{{ r }}</li>
       </ul>
+      <p v-if="riskScore && riskScore.topReasons.length" class="hint reasons-hint">{{ t('memberDetail.risk.reasonsHint') }}</p>
       <p v-if="!riskScore" class="empty">{{ t('memberDetail.risk.empty') }}</p>
+    </section>
+
+    <section class="card">
+      <h2>{{ t('memberDetail.healthScore.title') }}</h2>
+      <p class="hint">{{ t('memberDetail.healthScore.hint') }}</p>
+
+      <template v-if="healthScore">
+        <template v-if="healthScore.insufficientData">
+          <p class="insufficient">
+            <strong>{{ t('memberDetail.healthScore.insufficientTitle') }}</strong><br />
+            {{ t('memberDetail.healthScore.insufficientHint') }}
+          </p>
+          <p class="hint">
+            {{ t('memberDetail.healthScore.tenureDays') }}: {{ healthScore.tenureDays }} {{ t('memberDetail.healthScore.tenureDaysUnit') }}
+            · {{ t('memberDetail.healthScore.sessionCount') }}: {{ healthScore.sessionCount }}
+          </p>
+        </template>
+        <template v-else>
+          <div class="score-header">
+            <ScoreRing :value="healthScore.overallScore ?? 0" :color-class="healthScoreBand" />
+            <div class="score-meta">
+              <span class="badge" :class="healthScoreBand">{{ t(`memberDetail.healthScore.bands.${healthScoreBand}`) }}</span>
+              <span class="date">{{ t('memberDetail.healthScore.asOf') }} {{ healthScore.calculationDate }}</span>
+
+              <div v-if="healthScoreHistory.length > 1" class="trend">
+                <span class="trend-label">{{ t('memberDetail.healthScore.trend') }}</span>
+                <div class="sparkline">
+                  <div
+                    v-for="h in healthScoreHistory"
+                    :key="h.calculationDate"
+                    class="bar"
+                    :class="{ empty: h.overallScore === null }"
+                    :style="{ height: `${Math.max(4, h.overallScore ?? 4)}%` }"
+                    :title="`${h.calculationDate}: ${h.overallScore ?? '—'}`"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <h3 class="breakdown-title">{{ t('memberDetail.healthScore.howCalculated') }}</h3>
+          <table class="factor-table">
+            <thead>
+              <tr>
+                <th>{{ t('memberDetail.healthScore.factor') }}</th>
+                <th>{{ t('memberDetail.healthScore.weight') }}</th>
+                <th>{{ t('memberDetail.healthScore.score') }}</th>
+                <th>{{ t('memberDetail.healthScore.contribution') }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="f in orderedFactors" :key="f.factor">
+                <td>{{ t(`memberDetail.healthScore.factors.${f.factor}`) }}</td>
+                <td>{{ f.included ? `${f.weight.toFixed(0)}%` : '—' }}</td>
+                <td>{{ f.score !== null ? f.score.toFixed(0) : '—' }}</td>
+                <td v-if="f.included">+{{ f.contribution.toFixed(1) }}</td>
+                <td v-else class="empty">
+                  {{ t('memberDetail.healthScore.notIncluded') }}
+                  <template v-if="f.reason">({{ t(`memberDetail.healthScore.reasons.${f.reason}`) }})</template>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </template>
+      </template>
+      <p v-else class="empty">{{ t('memberDetail.healthScore.empty') }}</p>
     </section>
 
     <section class="card">
@@ -223,23 +462,7 @@ onMounted(load)
       <p v-else class="empty">{{ t('memberDetail.workoutMix.empty') }}</p>
     </section>
 
-    <section class="card">
-      <h2>{{ t('memberDetail.notes.title') }}</h2>
-      <p class="hint">{{ t('memberDetail.notes.hint') }}</p>
-      <form class="add-note" @submit.prevent="addNote">
-        <input v-model="newNote" :placeholder="t('memberDetail.notes.placeholder')" />
-        <button type="submit" :disabled="savingNote">{{ t('memberDetail.notes.add') }}</button>
-      </form>
-      <ul class="notes">
-        <li v-for="n in notes.filter((n) => n.isActive)" :key="n.id">
-          <span class="source" :class="n.source.toLowerCase()">{{ n.source }}</span>
-          <span class="text">{{ n.text }}</span>
-          <span class="date">{{ new Date(n.createdAt).toLocaleDateString() }}</span>
-          <button class="remove" @click="removeNote(n.id)">✕</button>
-        </li>
-        <li v-if="notes.filter((n) => n.isActive).length === 0" class="empty">{{ t('memberDetail.notes.empty') }}</li>
-      </ul>
-    </section>
+    <h2 class="group-title">{{ t('memberDetail.groups.goals') }}</h2>
 
     <section class="card">
       <div class="section-header">
@@ -282,6 +505,67 @@ onMounted(load)
       </ul>
     </section>
 
+    <h2 class="group-title">{{ t('memberDetail.groups.activity') }}</h2>
+
+    <section class="card">
+      <h2>{{ t('memberDetail.notes.title') }}</h2>
+      <p class="hint">{{ t('memberDetail.notes.hint') }}</p>
+      <form class="add-note" @submit.prevent="addNote">
+        <input v-model="newNote" :placeholder="t('memberDetail.notes.placeholder')" />
+        <button type="submit" :disabled="savingNote">{{ t('memberDetail.notes.add') }}</button>
+      </form>
+      <ul class="notes">
+        <li v-for="n in notes.filter((n) => n.isActive)" :key="n.id">
+          <span class="source" :class="n.source.toLowerCase()">{{ n.source }}</span>
+          <span class="text">{{ n.text }}</span>
+          <span class="date">{{ new Date(n.createdAt).toLocaleDateString() }}</span>
+          <button class="remove" @click="removeNote(n.id)">✕</button>
+        </li>
+        <li v-if="notes.filter((n) => n.isActive).length === 0" class="empty">{{ t('memberDetail.notes.empty') }}</li>
+      </ul>
+    </section>
+
+    <section class="card">
+      <h2>{{ t('memberDetail.outreach.title') }}</h2>
+      <ul class="outreach">
+        <li v-for="o in outreach" :key="o.id">
+          <span class="source" :class="o.sentBy.toLowerCase()">{{ o.sentBy }}</span>
+          <span class="channel">{{ o.channel }}</span>
+          <span class="text">{{ o.isHoldout ? t('memberDetail.outreach.holdout') : o.body }}</span>
+          <span class="status">{{ o.status }}</span>
+          <span class="date">{{ new Date(o.createdAt).toLocaleString() }}</span>
+        </li>
+        <li v-if="outreach.length === 0" class="empty">{{ t('memberDetail.outreach.empty') }}</li>
+      </ul>
+    </section>
+
+    <section class="card">
+      <div class="section-header">
+        <h2>{{ t('memberDetail.timeline.title') }}</h2>
+        <div class="timeline-filters">
+          <button class="ghost" :class="{ active: timelineFilter === '' }" @click="setTimelineFilter('')">{{ t('memberDetail.timeline.all') }}</button>
+          <button v-for="opt in TIMELINE_FILTERS" :key="opt" class="ghost" :class="{ active: timelineFilter === opt }" @click="setTimelineFilter(opt)">
+            {{ t(`memberDetail.timeline.filters.${opt}`) }}
+          </button>
+        </div>
+      </div>
+      <ul class="timeline">
+        <li v-for="(item, i) in timelinePageItems" :key="i">
+          <span class="type" :class="item.type.toLowerCase()">{{ item.type }}</span>
+          <span>{{ item.summary }}</span>
+          <span class="date">{{ new Date(item.at).toLocaleString() }}</span>
+        </li>
+        <li v-if="timelineFiltered.length === 0" class="empty">{{ t('memberDetail.timeline.empty') }}</li>
+      </ul>
+      <div v-if="timelineTotalPages > 1" class="pagination">
+        <button class="ghost" :disabled="timelinePage === 1" @click="timelinePage--">{{ t('memberDetail.timeline.prev') }}</button>
+        <span class="page-indicator">{{ t('memberDetail.timeline.page', { page: timelinePage, total: timelineTotalPages }) }}</span>
+        <button class="ghost" :disabled="timelinePage === timelineTotalPages" @click="timelinePage++">{{ t('memberDetail.timeline.next') }}</button>
+      </div>
+    </section>
+
+    <h2 class="group-title">{{ t('memberDetail.groups.membershipAdmin') }}</h2>
+
     <section class="card">
       <h2>{{ t('memberDetail.forms.title') }}</h2>
       <p class="hint">{{ t('memberDetail.forms.hint') }}</p>
@@ -307,37 +591,38 @@ onMounted(load)
       </ul>
     </section>
 
-    <section class="card">
-      <h2>{{ t('memberDetail.outreach.title') }}</h2>
-      <ul class="outreach">
-        <li v-for="o in outreach" :key="o.id">
-          <span class="source" :class="o.sentBy.toLowerCase()">{{ o.sentBy }}</span>
-          <span class="channel">{{ o.channel }}</span>
-          <span class="text">{{ o.isHoldout ? t('memberDetail.outreach.holdout') : o.body }}</span>
-          <span class="status">{{ o.status }}</span>
-          <span class="date">{{ new Date(o.createdAt).toLocaleString() }}</span>
-        </li>
-        <li v-if="outreach.length === 0" class="empty">{{ t('memberDetail.outreach.empty') }}</li>
-      </ul>
-    </section>
-
-    <section class="card">
+    <section v-if="canSeePayments" class="card">
       <div class="section-header">
-        <h2>{{ t('memberDetail.timeline.title') }}</h2>
-        <div class="timeline-filters">
-          <button class="ghost" :class="{ active: timelineFilter === '' }" @click="timelineFilter = ''">{{ t('memberDetail.timeline.all') }}</button>
-          <button v-for="opt in TIMELINE_FILTERS" :key="opt" class="ghost" :class="{ active: timelineFilter === opt }" @click="timelineFilter = opt">
-            {{ t(`memberDetail.timeline.filters.${opt}`) }}
-          </button>
-        </div>
+        <h2>{{ t('memberDetail.payments.title') }}</h2>
+        <button class="ghost" @click="showAddPayment = !showAddPayment">
+          {{ showAddPayment ? t('memberDetail.payments.cancel') : t('memberDetail.payments.addPayment') }}
+        </button>
       </div>
-      <ul class="timeline">
-        <li v-for="(item, i) in timelineFiltered" :key="i">
-          <span class="type" :class="item.type.toLowerCase()">{{ item.type }}</span>
-          <span>{{ item.summary }}</span>
-          <span class="date">{{ new Date(item.at).toLocaleString() }}</span>
+      <p class="hint">{{ t('memberDetail.payments.hint') }}</p>
+
+      <form v-if="showAddPayment" class="add-payment" @submit.prevent="addPayment">
+        <input v-model="newPayment.amount" type="number" step="0.01" min="0" :placeholder="t('memberDetail.payments.amountPlaceholder')" />
+        <input v-model="newPayment.currency" :placeholder="t('memberDetail.payments.currencyPlaceholder')" />
+        <input v-model="newPayment.paymentDate" type="date" />
+        <select v-model="newPayment.method">
+          <option v-for="m in PAYMENT_METHODS" :key="m" :value="m">{{ t(`memberDetail.payments.methods.${m}`) }}</option>
+        </select>
+        <select v-model="newPayment.status">
+          <option v-for="s in PAYMENT_STATUSES" :key="s" :value="s">{{ t(`memberDetail.payments.statuses.${s}`) }}</option>
+        </select>
+        <input v-model="newPayment.notes" :placeholder="t('memberDetail.payments.notesPlaceholder')" />
+        <button type="submit">{{ t('memberDetail.payments.save') }}</button>
+      </form>
+
+      <ul class="payments">
+        <li v-for="p in payments" :key="p.id">
+          <span class="text">{{ p.amount.toFixed(2) }} {{ p.currency }}</span>
+          <span class="status" :class="p.status.toLowerCase()">{{ t(`memberDetail.payments.statuses.${p.status}`) }}</span>
+          <span class="source">{{ t(`memberDetail.payments.methods.${p.method}`) }}</span>
+          <span v-if="p.notes" class="text">{{ p.notes }}</span>
+          <span class="date">{{ p.paymentDate }}</span>
         </li>
-        <li v-if="timelineFiltered.length === 0" class="empty">{{ t('memberDetail.timeline.empty') }}</li>
+        <li v-if="payments.length === 0" class="empty">{{ t('memberDetail.payments.empty') }}</li>
       </ul>
     </section>
   </div>
@@ -349,14 +634,77 @@ onMounted(load)
   margin-top: -0.5rem;
   font-variant-numeric: tabular-nums;
 }
-.card {
-  padding: 1rem 1.25rem;
-  margin-top: 1rem;
-}
 .hint {
   font-size: 0.85rem;
   color: var(--color-text-muted);
   margin-top: -0.25rem;
+}
+.alert-banner {
+  padding: 0.6rem 0.9rem;
+  border-radius: var(--radius-md);
+  background: var(--color-bg-soft);
+  border: 1px solid var(--color-border);
+  font-size: 0.85rem;
+  margin-top: 0.75rem;
+}
+.alert-banner.red {
+  background: var(--color-danger-soft);
+  border-color: var(--color-danger);
+}
+.alert-banner.amber {
+  background: var(--color-warning-soft);
+  border-color: var(--color-warning);
+}
+.alert-banner-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.alert-banner .view-all {
+  margin-left: auto;
+  font-weight: 600;
+}
+.alert-banner-list {
+  list-style: none;
+  padding: 0;
+  margin: 0.5rem 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.alert-banner-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+}
+.alert-banner-list .family {
+  font-weight: 600;
+}
+.alert-banner-list .rule-chip {
+  cursor: help;
+  font-variant-numeric: tabular-nums;
+}
+.manual-triggers {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-top: 0.75rem;
+}
+.manual-triggers button {
+  padding: 0.35rem 0.7rem;
+  font-size: 0.8rem;
+}
+.group-title {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-faint);
+  margin: 2rem 0 0;
+}
+.group-title:first-child {
+  margin-top: 0;
 }
 .add-note {
   display: flex;
@@ -383,6 +731,18 @@ onMounted(load)
   background: var(--color-bg-soft);
   color: var(--color-text);
 }
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.9rem;
+  margin-top: 0.9rem;
+}
+.page-indicator {
+  font-size: 0.82rem;
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
 .add-goal {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -390,6 +750,15 @@ onMounted(load)
   margin-bottom: 1rem;
 }
 .add-goal button {
+  grid-column: 1 / -1;
+}
+.add-payment {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+.add-payment button {
   grid-column: 1 / -1;
 }
 .goal-row {
@@ -409,7 +778,8 @@ onMounted(load)
 .outreach,
 .consent,
 .goals,
-.forms {
+.forms,
+.payments {
   list-style: none;
   padding: 0;
   margin: 0;
@@ -421,7 +791,8 @@ onMounted(load)
 .timeline li,
 .outreach li,
 .goals li,
-.forms li {
+.forms li,
+.payments li {
   display: flex;
   align-items: center;
   gap: 0.6rem;
@@ -494,21 +865,19 @@ code {
   align-items: center;
   gap: 0.6rem;
 }
-.badge {
-  padding: 0.15rem 0.5rem;
-  border-radius: 999px;
-  font-size: 0.75rem;
-  background: var(--color-bg-soft);
-  color: var(--color-text-muted);
-  text-transform: capitalize;
+.score-header {
+  display: flex;
+  align-items: center;
+  gap: 1.1rem;
 }
-.badge.red {
-  background: var(--color-danger-soft);
-  color: var(--color-danger);
+.score-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.4rem;
 }
-.badge.amber {
-  background: var(--color-warning-soft);
-  color: var(--color-warning);
+.score-meta .trend {
+  margin-top: 0.3rem;
 }
 .reasons {
   list-style: disc;
@@ -516,5 +885,55 @@ code {
   padding: 0;
   font-size: 0.85rem;
   color: var(--color-text-muted);
+}
+.badge.green {
+  background: var(--color-success-soft);
+  color: var(--color-success);
+}
+.insufficient {
+  color: var(--color-text-muted);
+  background: var(--color-bg-soft);
+  border-radius: var(--radius-sm);
+  padding: 0.6rem 0.8rem;
+  margin: 0;
+}
+.trend {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.6rem;
+  margin-top: 0.75rem;
+}
+.trend-label {
+  font-size: 0.75rem;
+  color: var(--color-text-faint);
+}
+.breakdown-title {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  margin-top: 0.9rem;
+}
+.sparkline {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 32px;
+}
+.sparkline .bar {
+  width: 6px;
+  min-height: 4px;
+  background: var(--color-accent);
+  border-radius: 2px;
+}
+.sparkline .bar.empty {
+  background: var(--color-border-strong);
+}
+.factor-table {
+  margin-top: 0.75rem;
+  width: 100%;
+}
+.factor-table td.empty {
+  color: var(--color-text-faint);
+  font-size: 0.8rem;
 }
 </style>

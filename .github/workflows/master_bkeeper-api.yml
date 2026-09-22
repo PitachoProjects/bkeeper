@@ -1,0 +1,81 @@
+# Docs for the Azure Web Apps Deploy action: https://github.com/Azure/webapps-deploy
+# More GitHub Actions for Azure: https://github.com/Azure/actions
+
+name: Build and deploy ASP.Net Core app to Azure Web App - bkeeper-api
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - 'src/BKeeper.Api/**'
+      - 'src/BKeeper.Application/**'
+      - 'src/BKeeper.Domain/**'
+      - 'src/BKeeper.Infrastructure/**'
+      - 'BKeeper.slnx'
+      - '.github/workflows/master_bkeeper-api.yml'
+  workflow_dispatch:
+
+env:
+  API_PROJECT: src/BKeeper.Api/BKeeper.Api.csproj
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read #This is required for actions/checkout
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up .NET Core
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      # The repo is a multi-project solution (API, Worker, shared libraries, tests) — build and
+      # publish only the API project explicitly, otherwise dotnet build/publish falls back to the
+      # solution file and mixes every project's output (including the Worker and test assemblies)
+      # into the deploy package.
+      - name: Build with dotnet
+        run: dotnet build ${{ env.API_PROJECT }} --configuration Release
+
+      - name: dotnet publish
+        run: dotnet publish ${{ env.API_PROJECT }} -c Release -o ${{ env.DOTNET_ROOT }}/myapp --no-build
+
+      - name: Upload artifact for deployment job
+        uses: actions/upload-artifact@v4
+        with:
+          name: .net-app
+          path: ${{ env.DOTNET_ROOT }}/myapp
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+    environment:
+      name: Production
+      url: ${{ steps.deploy-to-webapp.outputs.webapp-url }}
+    permissions:
+      id-token: write #This is required for requesting the JWT
+      contents: read #This is required for actions/checkout
+
+    steps:
+      - name: Download artifact from build job
+        uses: actions/download-artifact@v4
+        with:
+          name: .net-app
+
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_03F395B0C5F742F6B130B84C770B8536 }}
+          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_D14397BDCCA645499B91D1453ACC00CA }}
+          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_718B15551EF6480C876FD074DB2AF13F }}
+
+      - name: Deploy to Azure Web App
+        id: deploy-to-webapp
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: 'bkeeper-api'
+          slot-name: 'Production'
+          package: .

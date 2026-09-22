@@ -1,14 +1,24 @@
 {
-  "nav": {
-    "members": "Membros",
-    "alerts": "Caixa de alertas",
-    "dashboards": "Painéis",
-    "import": "Importar",
-    "settings": "Definições"
+  "theme": {
+    "light": "Claro",
+    "dark": "Escuro"
   },
-  "theme": { "light": "Claro", "dark": "Escuro" },
   "signOut": "Terminar sessão",
-  "severity": { "Info": "Regular", "Amber": "Alta", "Red": "Crítica" },
+  "severity": {
+    "Info": "Regular",
+    "Amber": "Alta",
+    "Red": "Crítica"
+  },
+  "explainThis": {
+    "trigger": "O que significa isto?",
+    "loading": "A carregar…",
+    "error": "Não foi possível carregar a explicação.",
+    "definition": "Definição",
+    "howCalculated": "Como é calculado",
+    "period": "Período",
+    "whyItMatters": "Porque é importante",
+    "limitations": "Limitações"
+  },
   "members": {
     "title": "Membros",
     "searchPlaceholder": "Pesquisar por nome…",
@@ -19,7 +29,48 @@
     "tenure": "Antiguidade",
     "empty": "Ainda sem membros — experimente a página de Importação.",
     "allStatuses": "Todos os estados",
-    "statuses": { "Active": "Ativo", "Frozen": "Congelado", "Cancelled": "Cancelado", "Lapsed": "Inativo" }
+    "statuses": {
+      "Active": "Ativo",
+      "Frozen": "Congelado",
+      "Cancelled": "Cancelado",
+      "Lapsed": "Inativo"
+    },
+    "presets": {
+      "atRisk": {
+        "title": "Em risco",
+        "hint": "Membros com um alerta crítico (vermelho) em aberto."
+      },
+      "earlyWarning": {
+        "title": "Alerta precoce",
+        "hint": "Membros com um alerta de alta prioridade (âmbar) em aberto."
+      },
+      "new": {
+        "title": "Novos atletas",
+        "hint": "Inscritos nos últimos 30 dias."
+      },
+      "inactive": {
+        "title": "Inativos",
+        "hint": "Membros cancelados ou inativos."
+      }
+    }
+  },
+  "coaches": {
+    "title": "Treinadores",
+    "hint": "Treinadores promovidos a partir dos dados das aulas, além dos adicionados aqui. Associar o treinador de uma aula a um destes ativa a análise de retenção por treinador no painel.",
+    "addCoach": "+ Adicionar treinador",
+    "cancel": "Cancelar",
+    "name": "Nome",
+    "email": "Email",
+    "status": "Estado",
+    "namePlaceholder": "Nome",
+    "emailPlaceholder": "Email (opcional)",
+    "save": "Guardar",
+    "edit": "Editar",
+    "empty": "Ainda sem treinadores.",
+    "statuses": {
+      "Active": "Ativo",
+      "Inactive": "Inativo"
+    }
   },
   "settings": {
     "title": "Definições",
@@ -31,7 +82,22 @@
     "family": "Família",
     "description": "Descrição",
     "enabled": "Ativa",
-    "enabledHint": "Desliga esta regra para o seu box — deixa de criar novos alertas; os já criados não são afetados."
+    "enabledHint": "Desliga esta regra para o seu box — deixa de criar novos alertas; os já criados não são afetados.",
+    "notToggleableHint": "Sempre ativa — ainda não configurável pelo utilizador.",
+    "healthScore": {
+      "title": "Pesos da pontuação de saúde",
+      "hint": "O quanto cada fator conta para a pontuação de saúde composta. Deve somar 100% antes de guardar.",
+      "total": "Total",
+      "save": "Guardar",
+      "saved": "Guardado como versão {version}.",
+      "invalidTotal": "Os pesos devem somar 100% (atualmente {total}%).",
+      "enabled": "Ativo",
+      "weight": "Peso %",
+      "version": "Versão ativa",
+      "minTenureDays": "Antiguidade mínima (dias)",
+      "minSessions": "Sessões mínimas",
+      "coldStartHint": "Membros abaixo de ambos os mínimos recebem \"sem histórico suficiente\" em vez de uma pontuação."
+    }
   },
   "alerts": {
     "title": "Caixa de alertas",
@@ -46,6 +112,7 @@
     "status": "Estado",
     "assigned": "Atribuído",
     "due": "Prazo",
+    "actions": "Ações",
     "claim": "Assumir",
     "claimHint": "Atribui-lhe este alerta, removendo-o da fila dos outros treinadores. Qualquer pessoa pode assumir qualquer alerta.",
     "sendMessage": "Enviar mensagem",
@@ -66,9 +133,20 @@
     "send": "Enviar"
   },
   "dashboards": {
-    "title": "Painéis",
-    "tabs": { "retention": "Retenção", "alertOps": "Operação de alertas", "workouts": "Treinos", "myWeek": "A minha semana" },
+    "pages": {
+      "retention": "Retenção",
+      "responsePerformance": "Desempenho de resposta",
+      "workouts": "Treinos",
+      "myWeek": "A minha semana"
+    },
+    "periods": {
+      "asOfToday": "a partir de hoje",
+      "thisMonth": "este mês civil",
+      "allTime": "desde sempre",
+      "next14Days": "14 dias após o contacto"
+    },
     "retention": {
+      "pageHint": "Quantos membros tem e quão bem os retém — contagens de ativos, curvas de retenção por coorte de inscrição e quanto tempo os membros costumam ficar antes de cancelar.",
       "active": "Ativos",
       "newThisMonth": "Novos este mês",
       "churnedThisMonth": "Perdidos este mês",
@@ -80,38 +158,73 @@
       "cohortHint": "% de cada coorte de inscrição ainda ativa, por meses desde a inscrição.",
       "cohort": "Coorte",
       "size": "Tamanho",
+      "rangeLabel": "Período das coortes",
+      "ranges": {
+        "6m": "6 meses",
+        "12m": "12 meses",
+        "2y": "2 anos",
+        "5y": "5 anos"
+      },
+      "rangeEmpty": "Sem coortes inscritas neste período.",
       "tenureTitle": "Antiguidade até ao churn",
-      "tenureHint": "Quanto tempo os membros ficaram antes de cancelar."
+      "tenureHint": "Quanto tempo os membros ficaram antes de cancelar.",
+      "coachFilter": "Treinador",
+      "allCoaches": "Todos os treinadores (todo o box)",
+      "aiSummary": {
+        "title": "Resumo de IA",
+        "hint": "Uma explicação gerada por IA dos números de retenção acima — descreve apenas os dados aqui apresentados, nunca números novos.",
+        "button": "Obter resumo de IA",
+        "loading": "A gerar…",
+        "notConfiguredTooltip": "Os resumos de IA não estão configurados para este ambiente.",
+        "aiGeneratedLabel": "Gerado por IA",
+        "evidenceToggle": "Mostrar os dados em que este resumo se baseia",
+        "error": "Não foi possível gerar um resumo de IA agora — tente novamente mais tarde."
+      }
     },
     "alertOps": {
+      "pageHint": "Quão bem a equipa está a identificar e a responder a membros em risco: rapidez a assumir alertas, se o contacto está a trazer as pessoas de volta, e que tipo de alertas está a receber.",
       "slaCompliance": "Cumprimento de SLA",
       "avgHoursToClaim": "Horas médias até assumir",
       "saveRate": "Taxa de recuperação",
       "treatedReturnRate": "Taxa de retorno (tratados)",
       "holdoutReturnRate": "Taxa de retorno (grupo de controlo)",
       "volumeTitle": "Volume",
+      "volumeHint": "Quantos alertas foram gerados, por urgência (severidade) e pelo que os despoletou (família).",
       "bySeverity": "Por severidade",
       "byFamily": "Por família",
       "outcomesTitle": "Distribuição de resultados",
+      "outcomesHint": "O que aconteceu aos alertas depois de resolvidos.",
       "empty": "Ainda sem alertas resolvidos."
     },
     "workouts": {
-      "heatmapTitle": "Dia × janela × tipo (últimas 12 semanas)",
+      "pageHint": "Quando os membros treinam, o que treinam e quão cheias estão as aulas — use para identificar horários subutilizados ou mudanças na popularidade dos tipos de treino.",
+      "heatmapTitle": "Visitas por dia × janela (últimas 12 semanas)",
       "windowsHint": "Janelas: Early antes das 08:00 · Morning 08:00–11:00 · Lunch 11:00–14:00 · Afternoon 14:00–17:00 · Evening depois das 17:00",
-      "day": "Dia",
-      "window": "Janela",
+      "allTypes": "Todos os tipos de treino",
+      "allClassTypes": "Todos os tipos de aula",
       "type": "Tipo",
-      "visits": "Visitas",
       "empty": "Sem visitas registadas nas últimas 12 semanas.",
       "fillTitle": "Ocupação de aulas por horário",
+      "fillHint": "% média de capacidade reservada, por tipo de aula e janela horária, últimas 12 semanas.",
       "classType": "Tipo de aula",
       "avgFill": "Ocupação média",
-      "fillEmpty": "Sem dados de capacidade nas últimas 12 semanas."
+      "fillEmpty": "Sem dados de capacidade nas últimas 12 semanas.",
+      "recentTitle": "Aulas recentes",
+      "recentHint": "Últimas 20 aulas com treino registado, últimas 12 semanas — passe o rato sobre o treino para ver a descrição.",
+      "date": "Data",
+      "workout": "Treino",
+      "coach": "Treinador",
+      "attended": "Presenças",
+      "recentEmpty": "Sem aulas recentes com treino registado."
     },
     "myWeek": {
+      "pageHint": "A sua fila de acompanhamento em aberto — alertas atribuídos à sua função ou assumidos por si, com prazo esta semana.",
       "openCoach": "Abertos (Treinador)",
+      "openCoachHint": "Alertas atualmente atribuídos à função Treinador ou assumidos por si, ainda não resolvidos.",
       "dueThisWeek": "Com prazo esta semana",
+      "dueThisWeekHint": "Dos alertas abertos acima, quantos têm prazo antes do fim desta semana.",
       "resolvedThisWeek": "Resolvidos esta semana",
+      "resolvedThisWeekHint": "Alertas (qualquer atribuição) resolvidos desde segunda-feira.",
       "openAlertsTitle": "Alertas abertos",
       "due": "Prazo",
       "empty": "Nada em aberto — boa semana."
@@ -119,6 +232,25 @@
   },
   "memberDetail": {
     "joined": "inscrito em",
+    "groups": {
+      "healthAndRisk": "Saúde & risco",
+      "goals": "Objetivos",
+      "activity": "Atividade & notas",
+      "membershipAdmin": "Administração"
+    },
+    "openAlerts": {
+      "title": "Alertas abertos",
+      "empty": "Sem alertas abertos para este membro.",
+      "viewAll": "Ver na caixa de alertas"
+    },
+    "manualTriggers": {
+      "recomputeHealthScore": "Recalcular pontuação de saúde",
+      "recomputeHealthScoreHint": "Executa o cálculo da pontuação de saúde apenas para este membro, agora.",
+      "rerunRules": "Reexecutar regras de alerta",
+      "rerunRulesHint": "Executa a verificação diária de regras apenas para este membro, agora.",
+      "running": "A executar…",
+      "done": "Concluído."
+    },
     "risk": {
       "title": "Risco de churn",
       "shadowMode": "modo sombra",
@@ -126,7 +258,51 @@
       "chance": "probabilidade de churn em 28 dias",
       "weekOf": "semana de",
       "model": "modelo",
+      "bands": {
+        "red": "Risco elevado",
+        "amber": "Risco moderado",
+        "green": "Risco baixo"
+      },
+      "reasonsHint": "Isto compara as visitas recentes do próprio membro com o seu padrão anterior (ex.: \"ritmo\" = visitas por semana) — não com outros membros.",
       "empty": "Ainda sem pontuação — corre semanalmente (domingo), ou pode ser despoletado a partir da caixa de alertas."
+    },
+    "healthScore": {
+      "title": "Pontuação de saúde",
+      "hint": "Uma pontuação composta de 0-100 baseada em presença, consistência, comportamento de reservas, progresso de objetivos e envolvimento — determinística e configurável, não uma previsão.",
+      "trend": "Tendência",
+      "asOf": "em",
+      "bands": {
+        "green": "Saudável",
+        "amber": "Atenção",
+        "red": "Precisa de atenção"
+      },
+      "insufficientTitle": "Ainda sem histórico suficiente",
+      "insufficientHint": "Este membro ainda não tem antiguidade suficiente (ou sessões suficientes) para uma pontuação fiável.",
+      "tenureDays": "Antiguidade",
+      "tenureDaysUnit": "dias",
+      "sessionCount": "Sessões registadas",
+      "howCalculated": "Como esta pontuação é calculada",
+      "factor": "Fator",
+      "weight": "Peso",
+      "score": "Pontuação",
+      "contribution": "Contribuição",
+      "notIncluded": "Não incluído",
+      "empty": "Ainda sem pontuação — corre diariamente, ou pode ser despoletada a partir das Definições.",
+      "factors": {
+        "Attendance": "Presença",
+        "Consistency": "Consistência",
+        "BookingBehaviour": "Comportamento de reservas",
+        "Progress": "Progresso",
+        "Engagement": "Envolvimento"
+      },
+      "reasons": {
+        "disabled": "desativado na configuração",
+        "no_goals": "sem objetivos definidos",
+        "no_evaluations": "sem respostas de avaliação",
+        "insufficient_history": "sem histórico suficiente",
+        "no_visits": "sem visitas no período",
+        "insufficient_data": "dados insuficientes"
+      }
     },
     "notes": {
       "title": "Notas",
@@ -179,12 +355,47 @@
       "title": "Linha do tempo",
       "all": "Todos",
       "empty": "Ainda sem atividade.",
-      "filters": { "note": "Nota", "Attended": "Presença", "NoShow": "Falta", "LateCancel": "Cancelamento tardio" }
+      "prev": "Anterior",
+      "next": "Seguinte",
+      "page": "Página {page} de {total}",
+      "filters": {
+        "note": "Nota",
+        "Attended": "Presença",
+        "NoShow": "Falta",
+        "LateCancel": "Cancelamento tardio"
+      }
     },
     "workoutMix": {
       "title": "Mistura de treinos",
       "hint": "Tipos de treino frequentados nos últimos 4 meses, por categoria.",
       "empty": "Sem treinos com categoria nos últimos 4 meses."
+    },
+    "payments": {
+      "title": "Pagamentos",
+      "hint": "Pagamentos registados para este membro — cobrados noutro sítio (dinheiro, terminal de cartão, transferência); não é um processador de pagamentos.",
+      "addPayment": "+ Adicionar pagamento",
+      "cancel": "Cancelar",
+      "amountPlaceholder": "Valor",
+      "currencyPlaceholder": "Moeda",
+      "notesPlaceholder": "Notas (opcional)",
+      "save": "Guardar",
+      "date": "Data",
+      "amount": "Valor",
+      "status": "Estado",
+      "method": "Método",
+      "notes": "Notas",
+      "empty": "Ainda sem pagamentos registados.",
+      "statuses": {
+        "Completed": "Concluído",
+        "Refunded": "Reembolsado",
+        "Failed": "Falhado"
+      },
+      "methods": {
+        "Card": "Cartão",
+        "Cash": "Dinheiro",
+        "Transfer": "Transferência",
+        "Other": "Outro"
+      }
     }
   },
   "import": {

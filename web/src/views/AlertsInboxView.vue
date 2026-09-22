@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { api, ApiError } from '@/lib/api'
 import { severityLabel } from '@/lib/labels'
@@ -20,6 +20,11 @@ interface AlertListItem {
   ruleCodes: string[]
 }
 
+interface RuleCatalogItem {
+  code: string
+  description: string
+}
+
 const TEMPLATE_KEYS = [
   'WELCOME',
   'ONB_NUDGE_D3',
@@ -35,6 +40,7 @@ const TEMPLATE_KEYS = [
 
 const alerts = ref<AlertListItem[]>([])
 const outcomes = ref<string[]>([])
+const ruleDescriptions = ref<Record<string, string>>({})
 const loading = ref(true)
 const severityFilter = ref('')
 const roleFilter = ref('')
@@ -46,6 +52,10 @@ const sendMode = ref<'template' | 'custom'>('template')
 const sendTemplate = ref(TEMPLATE_KEYS[2])
 const sendCustomBody = ref('')
 const sendError = ref('')
+
+const actionsColumnHint = computed(
+  () => `${t('alerts.claim')}: ${t('alerts.claimHint')} ${t('alerts.sendMessage')}: ${t('alerts.sendMessageHint')} ${t('alerts.resolve')}: ${t('alerts.resolveHint')}`,
+)
 
 async function load() {
   loading.value = true
@@ -104,6 +114,8 @@ async function confirmSend() {
 
 onMounted(async () => {
   outcomes.value = await api.get<string[]>('/alerts/outcomes')
+  const rules = await api.get<RuleCatalogItem[]>('/rules')
+  ruleDescriptions.value = Object.fromEntries(rules.map((r) => [r.code, r.description]))
   await load()
 })
 </script>
@@ -142,7 +154,7 @@ onMounted(async () => {
           <th>{{ t('alerts.status') }}</th>
           <th>{{ t('alerts.assigned') }}</th>
           <th>{{ t('alerts.due') }}</th>
-          <th></th>
+          <th>{{ t('alerts.actions') }}<InfoTip :text="actionsColumnHint" /></th>
         </tr>
       </thead>
       <tbody>
@@ -150,14 +162,16 @@ onMounted(async () => {
           <td><span class="badge" :class="a.severity.toLowerCase()">{{ severityLabel(a.severity) }}</span></td>
           <td><RouterLink :to="`/members/${a.memberId}`">{{ a.memberName }}</RouterLink></td>
           <td>{{ a.family }}</td>
-          <td>{{ a.ruleCodes.join(', ') }}</td>
-          <td>{{ a.status }}</td>
+          <td class="rule-chips">
+            <span v-for="code in a.ruleCodes" :key="code" class="badge rule-chip" :title="ruleDescriptions[code] ?? code">{{ code }}</span>
+          </td>
+          <td><span class="badge status">{{ a.status }}</span></td>
           <td>{{ a.assignedRole }}</td>
           <td>{{ new Date(a.dueAt).toLocaleString() }}</td>
           <td class="actions">
-            <button v-if="!a.claimedBy" @click="claim(a.id)">{{ t('alerts.claim') }}<InfoTip :text="t('alerts.claimHint')" /></button>
-            <button class="ghost" @click="startSend(a.id)">{{ t('alerts.sendMessage') }}<InfoTip :text="t('alerts.sendMessageHint')" /></button>
-            <button @click="startResolve(a.id)">{{ t('alerts.resolve') }}<InfoTip :text="t('alerts.resolveHint')" /></button>
+            <button v-if="!a.claimedBy" @click="claim(a.id)">{{ t('alerts.claim') }}</button>
+            <button class="ghost" @click="startSend(a.id)">{{ t('alerts.sendMessage') }}</button>
+            <button @click="startResolve(a.id)">{{ t('alerts.resolve') }}</button>
           </td>
         </tr>
         <tr v-if="alerts.length === 0">
@@ -227,24 +241,17 @@ onMounted(async () => {
   gap: 0.5rem;
   align-items: center;
 }
-.badge {
-  padding: 0.15rem 0.5rem;
-  border-radius: 999px;
-  font-size: 0.75rem;
-  background: var(--color-bg-soft);
-  color: var(--color-text-muted);
+.rule-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
 }
-.badge.red {
-  background: var(--color-danger-soft);
-  color: var(--color-danger);
+.rule-chip {
+  cursor: help;
+  font-variant-numeric: tabular-nums;
 }
-.badge.amber {
-  background: var(--color-warning-soft);
-  color: var(--color-warning);
-}
-.badge.info {
-  background: var(--color-info-soft);
-  color: var(--color-info);
+.badge.status {
+  text-transform: none;
 }
 .actions {
   display: flex;

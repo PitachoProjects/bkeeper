@@ -1,9 +1,13 @@
 using BKeeper.Application.Abstractions;
+using BKeeper.Application.Dashboards;
 using BKeeper.Application.Import;
+using BKeeper.Application.Insights;
 using BKeeper.Application.Ml;
 using BKeeper.Application.Notifications;
+using BKeeper.Infrastructure.Ai;
 using BKeeper.Infrastructure.Audit;
 using BKeeper.Infrastructure.Auth;
+using BKeeper.Infrastructure.Dashboards;
 using BKeeper.Infrastructure.Identity;
 using BKeeper.Infrastructure.Import;
 using BKeeper.Infrastructure.Ml;
@@ -61,8 +65,14 @@ public static class DependencyInjection
         services.AddHttpClient<IMlScoringClient, HttpMlScoringClient>(c => c.Timeout = TimeSpan.FromSeconds(30));
         services.AddScoped<MlScoringJob>();
 
+        services.AddScoped<IRetentionOverviewService, RetentionOverviewService>();
+        services.Configure<AnthropicOptions>(config.GetSection(AnthropicOptions.SectionName));
+        services.AddHttpClient<INarrativeGenerator, AnthropicNarrativeGenerator>(c => c.Timeout = TimeSpan.FromSeconds(30));
+        services.AddScoped<NarrativeInsightsService>();
+
         services.AddScoped<AuditLogger>();
         services.AddScoped<AnonymizationJob>();
+        services.AddScoped<HealthScoreJob>();
 
 #pragma warning disable CS0618 // simple string overload is obsolete in 1.20 in favor of an options-action; fine for now
         services.AddHangfire(cfg => cfg.UsePostgreSqlStorage(connectionString));
