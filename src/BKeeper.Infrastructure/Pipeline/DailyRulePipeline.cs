@@ -30,18 +30,20 @@ public class DailyRulePipeline(
         {
             using (currentBox.Use(boxId))
             {
-                await RunForBoxAsync(boxId, asOf, ct);
+                await RunForBoxAsync(boxId, asOf, ct: ct);
             }
         }
     }
 
-    public async Task<int> RunForBoxAsync(Guid boxId, DateOnly asOf, CancellationToken ct = default)
+    /// <summary><paramref name="memberId"/> scopes the run to a single member — the manual "recompute for
+    /// this athlete" trigger on their profile — instead of every active member in the box.</summary>
+    public async Task<int> RunForBoxAsync(Guid boxId, DateOnly asOf, Guid? memberId = null, CancellationToken ct = default)
     {
         var ruleConfigs = await db.RuleConfigs.ToDictionaryAsync(r => r.RuleCode, ct);
         var box = await db.Boxes.FindAsync([boxId], ct);
 
         var members = await db.Members
-            .Where(m => m.Status == MemberStatus.Active)
+            .Where(m => m.Status == MemberStatus.Active && (memberId == null || m.Id == memberId))
             .ToListAsync(ct);
 
         var alertsCreated = 0;
@@ -83,7 +85,14 @@ public class DailyRulePipeline(
         var openAlerts = await db.Alerts
             .Where(a => a.MemberId == memberId && a.Status != AlertStatus.Resolved && a.Status != AlertStatus.AutoResolved)
             .ToListAsync(ct);
-        var openByFamily = openAlerts.ToDictionary(a => a.Family, a => new OpenAlertState(a.Id, a.Severity));
+        // GroupBy, not ToDictionary(a => a.Family, ...): SimpleAlertService.CreateOrAppendAsync can leave two
+        // open alerts in the same family (two calls in one request, before either is saved, both see "no
+        // existing alert" and both create one) — a plain ToDictionary throws on the duplicate key and takes
+        // the whole daily run down for every member after this one. Picking the most severe/most recent as
+        // canonical keeps the pipeline running even while that data exists.
+        var canonicalOpenByFamily = openAlerts.GroupBy(a => a.Family)
+            .ToDictionary(g => g.Key, g => g.OrderByDescending(a => a.Severity).ThenByDescending(a => a.CreatedAt).First());
+        var openByFamily = canonicalOpenByFamily.ToDictionary(kv => kv.Key, kv => new OpenAlertState(kv.Value.Id, kv.Value.Severity));
 
         var lastResolvedByFamily = await db.Alerts
             .Where(a => a.MemberId == memberId && a.ResolvedAt != null)
@@ -123,7 +132,7 @@ public class DailyRulePipeline(
                     break;
 
                 case FamilyAction.AppendToExisting:
-                    var existing = openAlerts.First(a => a.Family == decision.Family);
+                    var existing = canonicalOpenByFamily[decision.Family];
                     existing.Severity = decision.Severity;
                     existing.RuleCodes = existing.RuleCodes.Union(decision.RuleCodes).ToList();
                     foreach (var (k, v) in decision.Evidence) existing.Evidence[k] = v;

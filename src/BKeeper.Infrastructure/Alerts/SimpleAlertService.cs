@@ -18,6 +18,16 @@ public class SimpleAlertService(BKeeperDbContext db)
         var open = await db.Alerts.Where(a => a.MemberId == memberId && a.Family == family
             && a.Status != AlertStatus.Resolved && a.Status != AlertStatus.AutoResolved).ToListAsync(ct);
 
+        // Also check alerts added-but-not-yet-saved on this same DbContext: a caller that fires this
+        // method twice for the same member/family before calling SaveChangesAsync (e.g. FormsPublicController
+        // raising EVAL_NEG then HEALTH off one form submission) would otherwise have the query above miss
+        // the first call's not-yet-persisted row and create a second alert in the same family — which then
+        // breaks the "one open alert per family" invariant DailyRulePipeline relies on.
+        var pendingMatch = db.ChangeTracker.Entries<Alert>()
+            .FirstOrDefault(e => e.State == EntityState.Added && e.Entity.MemberId == memberId && e.Entity.Family == family)
+            ?.Entity;
+        if (pendingMatch is not null) open.Add(pendingMatch);
+
         if (open.Count > 0)
         {
             var existing = open[0];

@@ -15,12 +15,12 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers()
     .AddJsonOptions(opt => opt.JsonSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter()));
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen(c => c.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+builder.Services.AddSwaggerGen(c => c.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.OpenApiSecurityScheme
 {
-    In = Microsoft.OpenApi.Models.ParameterLocation.Header,
+    In = Microsoft.OpenApi.ParameterLocation.Header,
     Description = "Paste a JWT: Bearer {token}",
     Name = "Authorization",
-    Type = Microsoft.OpenApi.Models.SecuritySchemeType.ApiKey,
+    Type = Microsoft.OpenApi.SecuritySchemeType.ApiKey,
 }));
 
 builder.Services.AddBKeeperInfrastructure(builder.Configuration);
@@ -71,6 +71,8 @@ using (var scope = app.Services.CreateScope())
     var db = scope.ServiceProvider.GetRequiredService<BKeeperDbContext>();
     db.Database.Migrate();
 }
+
+app.UseRouting();
 
 if (app.Environment.IsDevelopment())
 {

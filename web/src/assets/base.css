@@ -198,4 +198,88 @@ tbody tr {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-sm);
+  padding: 1rem 1.25rem;
+  margin-top: 1rem;
+}
+
+/* shared dashboard/list primitives, used across the dashboard pages, alert inbox and member detail
+   so each page doesn't redefine the same stat card / badge / hint styling */
+
+.page-subtitle {
+  color: var(--color-text-muted);
+  margin: -0.5rem 0 1.25rem;
+  max-width: 60ch;
+}
+
+.stat-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+.stat {
+  position: relative;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 0.75rem 1.1rem;
+  display: flex;
+  flex-direction: column;
+}
+.stat-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.stat-label {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  display: flex;
+  align-items: center;
+}
+.stat-period {
+  font-size: 0.68rem;
+  color: var(--color-text-faint);
+  margin-top: 0.1rem;
+}
+.good-text {
+  color: var(--color-success);
+}
+.bad-text {
+  color: var(--color-danger);
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.hint {
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+  margin: 0.1rem 0 0.75rem;
+}
+.empty {
+  color: var(--color-text-faint);
+}
+
+.badge {
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  background: var(--color-bg-soft);
+  color: var(--color-text-muted);
+  text-transform: capitalize;
+}
+.badge.red {
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+}
+.badge.amber {
+  background: var(--color-warning-soft);
+  color: var(--color-warning);
+}
+.badge.info {
+  background: var(--color-info-soft);
+  color: var(--color-info);
 }

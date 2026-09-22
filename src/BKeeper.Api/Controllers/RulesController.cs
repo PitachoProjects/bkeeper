@@ -9,7 +9,7 @@ using Microsoft.EntityFrameworkCore;
 namespace BKeeper.Api.Controllers;
 
 public record RulesRunResult(int AlertsCreated);
-public record RuleCatalogItem(string Code, string Family, string Description, bool Enabled, int CooldownDaysAmber, int CooldownDaysRed);
+public record RuleCatalogItem(string Code, string Family, string Description, bool Enabled, bool Toggleable, int CooldownDaysAmber, int CooldownDaysRed);
 public record SetRuleEnabledRequest(bool Enabled);
 
 [ApiController]
@@ -26,14 +26,33 @@ public class RulesController(DailyRulePipeline pipeline, BKeeperDbContext db, IE
         ["R03"] = "Frequency drop — last two weeks' visit rate has dropped well below their baseline.",
         ["R04"] = "No-show streak — repeated no-shows/late-cancels recently, or a high no-show rate over 8 weeks.",
         ["R08"] = "Onboarding no first visit — joined a week ago and still hasn't shown up.",
+        ["R10"] = "Goal at risk — an active goal is due within 6 weeks and off pace, or has had no progress update in 8 weeks.",
+        ["R11"] = "Evaluation overdue — an evaluation form link has gone unused for 21+ days after being sent.",
+        ["EVAL_NEG"] = "Negative evaluation — a submitted evaluation form flagged a negative response.",
+        ["HEALTH"] = "Health flag — a submitted evaluation form flagged a health or injury concern.",
     };
 
-    /// <summary>Runs the daily rule pipeline for the caller's box on demand (plan §Week4: "dry-run mode").</summary>
+    /// <summary>Codes raised outside the <see cref="IRule"/> pipeline (<see cref="GoalsEvaluationsJob"/>,
+    /// <c>FormsPublicController</c>) — real alert-producing rules, but not toggleable here yet since they
+    /// aren't gated by <see cref="BKeeper.Domain.Entities.RuleConfig"/>.Enabled the way R01-R08 are. Listed
+    /// so Settings' catalog always matches every rule code the Alert Inbox can actually show (was the R10
+    /// mismatch bug); the frontend disables the enabled toggle for these.</summary>
+    private static readonly (string Code, string Family)[] NonToggleableCodes =
+    [
+        ("R10", "Goal"),
+        ("R11", "Eval"),
+        ("EVAL_NEG", "Eval"),
+        ("HEALTH", "Eval"),
+    ];
+
+    /// <summary>Runs the daily rule pipeline for the caller's box on demand (plan §Week4: "dry-run mode").
+    /// <paramref name="memberId"/> scopes the run to a single member (manual "recompute for this athlete"
+    /// trigger on their profile) instead of the whole box.</summary>
     [HttpPost("run")]
-    public async Task<ActionResult<RulesRunResult>> Run([FromQuery] DateOnly? asOf)
+    public async Task<ActionResult<RulesRunResult>> Run([FromQuery] DateOnly? asOf, [FromQuery] Guid? memberId)
     {
         var boxId = Guid.Parse(User.FindFirst("box_id")!.Value);
-        var created = await pipeline.RunForBoxAsync(boxId, asOf ?? DateOnly.FromDateTime(DateTime.UtcNow));
+        var created = await pipeline.RunForBoxAsync(boxId, asOf ?? DateOnly.FromDateTime(DateTime.UtcNow), memberId);
         return Ok(new RulesRunResult(created));
     }
 
@@ -45,8 +64,10 @@ public class RulesController(DailyRulePipeline pipeline, BKeeperDbContext db, IE
         {
             configs.TryGetValue(r.Code, out var cfg);
             return new RuleCatalogItem(r.Code, r.Family.ToString(), Descriptions.GetValueOrDefault(r.Code, ""),
-                cfg?.Enabled ?? true, cfg?.CooldownDaysAmber ?? 14, cfg?.CooldownDaysRed ?? 7);
-        }).OrderBy(r => r.Code).ToList();
+                cfg?.Enabled ?? true, true, cfg?.CooldownDaysAmber ?? 14, cfg?.CooldownDaysRed ?? 7);
+        }).Concat(NonToggleableCodes.Select(c =>
+            new RuleCatalogItem(c.Code, c.Family, Descriptions.GetValueOrDefault(c.Code, ""), true, false, 0, 0)
+        )).OrderBy(r => r.Code).ToList();
         return Ok(items);
     }
 

@@ -24,13 +24,14 @@ public class AlertsController(BKeeperDbContext db, EscalationJob escalationJob, 
 {
     [HttpGet]
     public async Task<ActionResult<List<AlertListItem>>> List(
-        [FromQuery] AlertStatus? status, [FromQuery] AlertSeverity? severity, [FromQuery] UserRole? role)
+        [FromQuery] AlertStatus? status, [FromQuery] AlertSeverity? severity, [FromQuery] UserRole? role, [FromQuery] Guid? memberId)
     {
         var query = db.Alerts.Include(a => a.Member).AsQueryable();
         if (status.HasValue) query = query.Where(a => a.Status == status);
         else query = query.Where(a => a.Status != AlertStatus.Resolved && a.Status != AlertStatus.AutoResolved);
         if (severity.HasValue) query = query.Where(a => a.Severity == severity);
         if (role.HasValue) query = query.Where(a => a.AssignedRole == role);
+        if (memberId.HasValue) query = query.Where(a => a.MemberId == memberId);
 
         var alerts = await query.OrderByDescending(a => a.Severity).ThenBy(a => a.DueAt)
             .Select(a => new AlertListItem(a.Id, a.MemberId, a.Member!.Name, a.Family, a.Severity, a.Status, a.AssignedRole, a.ClaimedBy, a.DueAt, a.RuleCodes))

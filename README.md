@@ -7,7 +7,7 @@ Retention platform for CrossFit boxes — see [docs/PLAN.md](docs/PLAN.md) for t
 
 ## Stack
 
-- **Backend:** .NET 8 (`BKeeper.Api`, `BKeeper.Worker`), EF Core + PostgreSQL, Hangfire
+- **Backend:** .NET 10 (`BKeeper.Api`, `BKeeper.Worker`), EF Core + PostgreSQL, Hangfire
 - **ML:** Python 3.12 + FastAPI + scikit-learn + LightGBM + SHAP (`ml/`) — churn-risk scoring, shadow mode
 - **Frontend:** Vue 3 + TypeScript + Vite + Pinia + Vue Router (`web/`)
 - **Infra:** Docker Compose (project name `bkeeper`) — Postgres, API, Worker, ML, Web as five
@@ -23,28 +23,9 @@ docker compose up -d --build
 By default the API/Worker connect to the local `postgres` container — this holds regardless of
 `ASPNETCORE_ENVIRONMENT`, since `docker-compose.yml` sets `ConnectionStrings__Postgres` explicitly.
 To point Docker at a remote Postgres instead for a one-off (e.g. to run migrations against
-Supabase — see below), copy `.env.example` to `.env` and set `DATABASE_CONNECTION_STRING` —
-`docker compose` picks it up automatically. `.env` is gitignored — never commit real credentials.
-
-### Production (Supabase)
-
-`appsettings.Production.json` (API and Worker) points at the Supabase **Session pooler** host —
-the direct-connection host is IPv6-only and unreachable from most networks/hosts, so always use
-the pooler string from Supabase's dashboard (Project Settings → Database → Connection string).
-The file deliberately omits the password: Npgsql reads it from the `PGPASSWORD` environment
-variable at startup, so the real credential never lives in this (public) repo. To run in
-production mode: `ASPNETCORE_ENVIRONMENT=Production PGPASSWORD=<db-password> dotnet BKeeper.Api.dll`
-(same for the Worker), or set both as env vars on whatever host/platform runs the containers.
-
-**First-time setup against a fresh Supabase database:**
-1. Create the schema by pointing the API at Supabase once via the `.env` override above (full
-   connection string including the password) and starting it — `Database.Migrate()` runs on
-   startup (`src/BKeeper.Api/Program.cs`) and creates all tables.
-2. Copy over existing local data with `scripts/migrate_to_supabase.sh` (dumps `bkeeper-postgres`
-   and restores into Supabase — see the script header for the required `SUPABASE_*`/`PGPASSWORD`
-   env vars). Safe to run once against an empty target; not a sync tool.
-3. Revert the `.env` override (or delete `.env`) so local Docker runs go back to the local DB, and
-   run the app for real with `ASPNETCORE_ENVIRONMENT=Production` + `PGPASSWORD` as above.
+Supabase — see "Pointing production at Supabase" below), copy `.env.example` to `.env` and set
+`DATABASE_CONNECTION_STRING` — `docker compose` picks it up automatically. `.env` is gitignored —
+never commit real credentials.
 
 - API: http://localhost:5080 (Swagger at `/swagger`, health at `/health`)
 - Web: http://localhost:5173
@@ -65,6 +46,8 @@ curl -X POST http://localhost:5080/rules/run              -H "Authorization: Bea
 curl -X POST http://localhost:5080/alerts/escalate/run     -H "Authorization: Bearer <token>"  # SLA escalation, auto-resolve, auto-expire
 curl -X POST http://localhost:5080/outreach/dispatch       -H "Authorization: Bearer <token>"  # send Queued messages (outside quiet hours)
 curl -X POST http://localhost:5080/risk-scores/run         -H "Authorization: Bearer <token>"  # weekly ML scoring (shadow mode) — Manager/Owner only
+curl -X POST http://localhost:5080/health-score/run         -H "Authorization: Bearer <token>"  # recompute the Athlete Health Score for every active member
+curl -X POST http://localhost:5080/coaches/backfill         -H "Authorization: Bearer <token>"  # link any still-unlinked ClassSession.CoachName values to Coach records — Owner/Manager only
 curl -X POST http://localhost:5080/gdpr/anonymize/run       -H "Authorization: Bearer <token>"  # anonymize members cancelled 24+ months ago
 ```
 
@@ -79,13 +62,34 @@ A negative or health-flagged answer creates an alert automatically.
 
 Churn risk (plan §8, R13) shows up on the member page as a "Churn risk" card, visible to Manager/Owner
 only — it's **shadow mode**: scores are computed and stored weekly (or on demand via the endpoint
-above) but never create an alert. The model was trained on synthetic data (see
-[docs/DECISIONS.md#d23](docs/DECISIONS.md)) since no real export exists yet — treat the risk numbers
-as a pipeline demo, not a real prediction.
+above) but never create an alert. Two models run side by side: the original LightGBM ensemble
+(Stage C, shown by default) and a standalone, calibrated logistic regression baseline (Stage B —
+`GET /risk-scores/members/{id}/compare`, coefficients instead of SHAP for interpretability; see
+[docs/DECISIONS.md#d27](docs/DECISIONS.md) and `docs/RUNBOOK.md`'s "Comparing the two churn models"
+section). Both were trained on synthetic data (see [docs/DECISIONS.md#d23](docs/DECISIONS.md)) since
+no real export exists yet — treat the risk numbers as a pipeline demo, not a real prediction.
 
 The **Dashboards** page has four tabs (retention, alert ops, workouts, my week) — cohort retention
 curves, SLA compliance, save rate, holdout-vs-treated, window×type heatmap, class fill, and a coach's
-open-alerts-this-week view. Retention cohorts export as CSV from the page.
+open-alerts-this-week view. Retention cohorts export as CSV from the page. The retention tab can be
+filtered by coach and, for Manager/Owner, has a click-triggered "Get AI summary" card that turns the
+same numbers into a plain-language narrative via Anthropic's Messages API (see "Turning on AI
+retention summaries" in [docs/RUNBOOK.md](docs/RUNBOOK.md) — off by default, never invents a number
+not already on the page). Most stats across the dashboard have an "ⓘ What does this mean?" toggle
+backed by a formal metric-definition catalog (`GET /metric-definitions`) so the definition, formula,
+and limitations of a number are one click away instead of tribal knowledge (see
+[docs/DECISIONS.md#d28](docs/DECISIONS.md)).
+
+The **Athlete Health Score** (Settings → Health score weights) is a configurable, versioned composite
+of attendance, consistency, booking behaviour, progress, and engagement — shown on each member's page
+with a full weight/score/contribution breakdown, distinct from the shadow-mode ML churn risk score
+below. Re-weighting creates a new version rather than rewriting history, so a score computed
+yesterday still shows what it showed (see [docs/DECISIONS.md#d29](docs/DECISIONS.md)).
+
+**Coaches** get their own page (promoted from the free-text `ClassSession.CoachName` field, with a
+one-time backfill migration linking existing sessions) and a coach filter on the retention dashboard
+for coach-level drill-down. **Payments** are recorded per member (Owner/Manager/Reception) on the
+member page — data-model-only, no payment gateway integration.
 
 GDPR: `GET /members/{id}/gdpr/export` returns every piece of personal data held on a member as one
 JSON bundle; `POST /members/{id}/gdpr/anonymize` scrubs their PII immediately (right-to-be-forgotten).
@@ -117,6 +121,52 @@ dotnet test src/BKeeper.Tests.Unit
 cd ml && python -m pytest tests/
 ```
 
+## Deploy (Azure)
+
+Two GitHub Actions workflows push `master` straight to Azure on every relevant change:
+
+- **Frontend** — `.github/workflows/azure-static-web-apps-proud-desert-0db9c9403.yml` builds `web/`
+  and deploys it to the Azure Static Web App at
+  https://proud-desert-0db9c9403.5.azurestaticapps.net. Requires the
+  `AZURE_STATIC_WEB_APPS_API_TOKEN_PROUD_DESERT_0DB9C9403` repo secret (from the Static Web App's
+  deployment token). `web/staticwebapp.config.json` adds the SPA fallback rewrite Vue Router's
+  history mode needs.
+- **API** — `.github/workflows/master_bkeeper-api.yml` (auto-generated by Azure's Deployment
+  Center, then fixed up to build/publish `src/BKeeper.Api` specifically instead of the whole
+  solution) builds with the .NET 10 SDK and deploys it to the Linux Web App at
+  https://bkeeper-api-gqfub3ebf5gyeshr.westeurope-01.azurewebsites.net (App Service runtime stack:
+  `.NET 10`). Auth is OIDC federated credentials, not a publish profile — it needs the
+  `AZUREAPPSERVICE_CLIENTID_...`, `AZUREAPPSERVICE_TENANTID_...` and
+  `AZUREAPPSERVICE_SUBSCRIPTIONID_...` repo secrets that Azure's Deployment Center provisions
+  automatically when you connect GitHub Actions deployment from the Portal.
+
+Swagger is served at `/swagger` in every environment, including the deployed Web App, so the live
+API contract is browsable at
+https://bkeeper-api-gqfub3ebf5gyeshr.westeurope-01.azurewebsites.net/swagger. The Web App also needs
+its own app settings for `ConnectionStrings__Postgres`, `Jwt__SigningKey`, etc. — see
+`src/BKeeper.Api/appsettings.json` for the full set of keys; `appsettings.Production.json` only pins
+`Cors:AllowedOrigins` to the Static Web App's origin.
+
+### Pointing production at Supabase
+
+The live `bkeeper-api` Web App needs `ConnectionStrings__Postgres` set as an **Azure Application
+Setting** (Portal → `bkeeper-api` → Configuration → Application settings, or
+`az webapp config appsettings set --name bkeeper-api --resource-group <rg> --settings ConnectionStrings__Postgres="..."`)
+— the full connection string, including the password, never lives in this (public) repo. Use
+Supabase's **Session pooler** connection string (Project Settings → Database → Connection string):
+the direct-connection host is IPv6-only and unreachable from most networks, including Azure App
+Service, so the pooler is the only one that works here.
+
+**First-time setup against a fresh Supabase database:**
+1. Create the schema by pointing local Docker at Supabase once (`.env` → `DATABASE_CONNECTION_STRING`
+   = the full pooler string with password) and starting the API — `Database.Migrate()` runs on
+   startup (`src/BKeeper.Api/Program.cs`) and creates every table.
+2. Copy over existing local data with `scripts/migrate_to_supabase.sh` (dumps `bkeeper-postgres`
+   and restores into Supabase — see the script header for the required `SUPABASE_*`/`PGPASSWORD`
+   env vars). Safe to run once against an empty target; not a sync tool.
+3. Revert (or delete) `.env` so local Docker runs go back to the local DB, then set the Azure
+   Application Setting above so the deployed API uses Supabase.
+
 ## Repo layout
 
 ```
@@ -124,15 +174,25 @@ BKeeper/
   docs/            PLAN.md, DECISIONS.md, OPEN_QUESTIONS.md, RUNBOOK.md
   src/
     BKeeper.Domain/         entities, enums, rule contracts — no dependencies
-    BKeeper.Application/    metrics, rule implementations, alert orchestration, import contracts
-    BKeeper.Infrastructure/ EF Core, Postgres, Excel import, JWT auth, Hangfire pipeline
-    BKeeper.Api/            REST API (controllers, auth)
-    BKeeper.Worker/         Hangfire host (daily rule run)
-    BKeeper.Tests.Unit/     xunit — rules, metrics, alert orchestration, workout classifier
-  web/             Vue 3 SPA (its own Dockerfile — deployable independently)
+    BKeeper.Application/    metrics, health scoring, metric-definition catalog, rule implementations,
+                             alert orchestration, coach backfill, retention-overview service, import
+                             contracts, LLM narrative-generator interface
+    BKeeper.Infrastructure/ EF Core, Postgres, Excel import, JWT auth, Hangfire pipeline, Anthropic
+                             narrative-generator implementation
+    BKeeper.Api/            REST API (controllers, auth) — members, coaches, payments, health score,
+                             metric definitions, risk scores, insights narrative, dashboards, alerts
+    BKeeper.Worker/         Hangfire host (daily rule run, health score, ML scoring, GDPR sweep, …)
+    BKeeper.Tests.Unit/     xunit — rules, metrics, health scoring, alert orchestration, workout
+                             classifier, coach backfill, narrative-layer guardrails
+  web/             Vue 3 SPA (its own Dockerfile — deployable independently). Sidebar nav is grouped
+                   by workflow (Dashboard / Athletes / Classes / Insights / Reports / Configuration)
+                   rather than one entry per page — see `src/App.vue`.
   ml/              Python FastAPI scoring service (its own Dockerfile — deployable independently)
-    app/           features.py (single source of truth), synthetic.py, train.py, serve.py, explain.py
-    tests/         pytest — feature fixtures, no-leakage checks
+    app/           features.py (single source of truth), synthetic.py, train.py (LightGBM ensemble,
+                    Stage C), logistic.py (logistic regression baseline, Stage B), metrics.py (shared
+                    evaluation), serve.py, explain.py
+    backtest_compare.py     side-by-side metrics for both churn models on the same split
+    tests/         pytest — feature fixtures, no-leakage checks, both models' metrics/serving
   scripts/         backup.sh / restore.sh — Postgres backup/restore drill
   infra/docker/    Dockerfiles for the API and Worker (repo-root build context)
   docker-compose.yml

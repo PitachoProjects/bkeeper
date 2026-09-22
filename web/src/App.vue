@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import { RouterLink, RouterView, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
@@ -10,6 +11,34 @@ const theme = useThemeStore()
 useLocaleStore()
 const { t } = useI18n()
 const route = useRoute()
+
+interface NavItem {
+  to: string
+  label: string
+}
+
+// One entry per real page, in the order a box's daily workflow actually visits them (check the
+// board, work the queue, look someone up, keep the data current). Every label below is the exact
+// same i18n key the target page uses for its own <h1> — nav and page title can't drift apart
+// because there is only one string, not two. Do not add a nav item that points at a URL another
+// item already points at; if a feature needs a new destination, give it a real page/tab, not a
+// second name for an existing one.
+const items = computed<NavItem[]>(() => [
+  { to: '/dashboard/retention', label: t('dashboards.pages.retention') },
+  { to: '/dashboard/interventions', label: t('dashboards.pages.responsePerformance') },
+  { to: '/dashboard/attendance', label: t('dashboards.pages.workouts') },
+  { to: '/dashboard/my-week', label: t('dashboards.pages.myWeek') },
+  { to: '/members', label: t('members.title') },
+  { to: '/alerts', label: t('alerts.title') },
+  { to: '/coaches', label: t('coaches.title') },
+  { to: '/import', label: t('import.title') },
+  { to: '/settings', label: t('settings.title') },
+])
+
+const activeTo = computed(() => {
+  if (route.path.startsWith('/members')) return '/members'
+  return items.value.find((i) => route.path === i.to)?.to
+})
 </script>
 
 <template>
@@ -17,11 +46,9 @@ const route = useRoute()
     <aside class="sidebar">
       <div class="brand">BKeeper</div>
       <nav>
-        <RouterLink to="/members">{{ t('nav.members') }}</RouterLink>
-        <RouterLink to="/alerts">{{ t('nav.alerts') }}</RouterLink>
-        <RouterLink to="/dashboards">{{ t('nav.dashboards') }}</RouterLink>
-        <RouterLink to="/import">{{ t('nav.import') }}</RouterLink>
-        <RouterLink to="/settings">{{ t('nav.settings') }}</RouterLink>
+        <RouterLink v-for="item in items" :key="item.to" :to="item.to" :class="{ 'router-link-active': activeTo === item.to }">
+          {{ item.label }}
+        </RouterLink>
       </nav>
       <div class="theme-switch" role="group" aria-label="Theme">
         <button :class="{ active: theme.mode === 'light' }" @click="theme.setMode('light')">{{ t('theme.light') }}</button>
@@ -65,13 +92,14 @@ const route = useRoute()
 nav {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: 0.15rem;
   flex: 1;
+  overflow-y: auto;
 }
 nav a {
   color: var(--color-text-muted);
   text-decoration: none;
-  padding: 0.5rem 0.7rem;
+  padding: 0.55rem 0.7rem;
   border-radius: var(--radius-sm);
   font-size: 0.9rem;
   font-weight: 500;

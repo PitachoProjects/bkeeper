@@ -32,3 +32,24 @@ def top_reasons(shap_values: dict[str, float], feature_values: dict[str, float],
         value = feature_values.get(feature, 0.0)
         reasons.append(PHRASES[feature].format(value=value))
     return reasons
+
+
+def top_reasons_linear(bundle: dict, feature_values: dict[str, float], top_k: int = 3) -> list[str]:
+    """Stage B's interpretability: contribution = the plain logistic regression's standardized
+    coefficient times this member's standardized feature value — a statistical, per-member
+    decomposition of the log-odds, not a SHAP explanation. Uses `coefficients_model` (the plain,
+    uncalibrated fit kept in the bundle for exactly this) rather than the calibrated ensemble, whose
+    per-fold coefficients aren't a single readable vector. Same risk-direction-only filtering and
+    phrase whitelist as `top_reasons` so the two models' reasons read the same way to a coach."""
+    feature_names = bundle["feature_names"]
+    z = bundle["scaler"].transform([[feature_values[f] for f in feature_names]])[0]
+    coefs = bundle["coefficients_model"].coef_[0]
+
+    contributions = [(f, float(coefs[i] * z[i])) for i, f in enumerate(feature_names)]
+    risky = [(f, v) for f, v in contributions if v > 0 and f in PHRASES]
+    risky.sort(key=lambda x: x[1], reverse=True)
+
+    reasons = []
+    for feature, _ in risky[:top_k]:
+        reasons.append(PHRASES[feature].format(value=feature_values.get(feature, 0.0)))
+    return reasons

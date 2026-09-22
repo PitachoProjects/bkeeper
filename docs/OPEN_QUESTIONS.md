@@ -4,6 +4,11 @@ Per plan §0.3: every ambiguity gets a documented default here instead of blocki
 
 ## From this pass (foundation build)
 
+> The section below describes gaps as of the original Week 0-4 foundation build. Several were closed
+> by later weeks (SLA escalation: Week 5/D20; outreach/notifications: Week 6/D21) — cross-check against
+> [DECISIONS.md](DECISIONS.md)'s newest-first ADR log (currently through D29) for what's actually true
+> today rather than trusting every bullet here at face value.
+
 - **No real platform connector exists.** `IBoxDataConnector` defines the contract (plan §10) but
   nothing implements it — the plan requires reading the chosen platform's real API docs first, and no
   platform was ever named. Excel import remains the only ingestion path. Whoever picks a platform
@@ -22,9 +27,12 @@ Per plan §0.3: every ambiguity gets a documented default here instead of blocki
   that the pipeline runs correctly end-to-end, not that the model will perform well on a real box's
   data. Plan §8 is explicit that the first real backtest (Week 8/12 on real data) decides the actual
   go-live thresholds — that gate isn't evaluated anywhere in this codebase yet.
-- **No LLM integration exists**, so evaluation free-text answers (injury/price/schedule/coach/motivation
-  "suggested" tags per plan §9) are stored as-is but never auto-tagged. Would need an LLM API key/service
-  configured — out of scope without one.
+- **LLM integration exists but only for one narrow use** — `POST /insights/narrative` turns the
+  retention-overview dashboard numbers into a plain-language summary (see DECISIONS.md D26), gated
+  behind an optional `ANTHROPIC_API_KEY`. Evaluation free-text answers (injury/price/schedule/coach/
+  motivation "suggested" tags per plan §9) are still stored as-is and never auto-tagged — that would
+  need its own prompt/guardrails built the same way, not a given just because a narrative generator
+  now exists.
 - **`MemberProfile` (usual window/days, type mix, persona, baseline) is never populated.** The entity
   exists (Week 3) but no job builds it — R05/R06/R07 (window/type-shift rules) can't run without it,
   and Week 6's `{usual_class}`/`{coach}` template variables fall back to static placeholder text
@@ -34,18 +42,18 @@ Per plan §0.3: every ambiguity gets a documented default here instead of blocki
   "until" date. Default: notes are informational only; a coach who wants suppression still has to set
   it separately (not yet exposed in the API/UI). Open question: should tagging a note as "injury"
   prompt for an `until` date and set the flag automatically?
-- **"Human contact in last 7 days" always evaluates to `false`** in the rule pipeline, because
-  outreach/notifications (Week 6) aren't built yet. This means the plan's §6.3 "K: human contact ->
-  create as info / delay" branch never fires today — every non-cooldown hit becomes a full-severity
-  alert. Revisit once outreach exists.
+- **"Human contact in last 7 days" still always evaluates to `false`.** Outreach/notifications
+  (Week 6/D21) exist now, but `AttendanceRules.cs` never queries `Outreach` — the plan's §6.3 "K:
+  human contact -> create as info / delay" branch never fires; every non-cooldown hit still becomes
+  a full-severity alert regardless of recent contact. Confirmed still true, not just carried over.
 - **Onboarding rule (R08) is simplified** to "no visit within 7 days of joining" (red). The plan's
   full day-0/3/7/14/30/60/90 track (§6.6) is a scheduled workflow with its own state, not a pure
   per-run rule — it needs its own job/table and was out of scope for this pass.
 - **R05–R07, R09–R12, R14 are not implemented.** Only the attendance family (R01–R04) plus the
   simplified R08 exist. `RuleConfig` rows for the others can be added later without a schema change.
-- **SLA escalation (§6.4) is not implemented** — alerts are created with a `DueAt` and an
-  `AssignedRole`, but nothing currently promotes an unclaimed alert to Manager/Owner or reopens an
-  idle-claimed one. `AlertStatus.Escalated`/`Reopened` exist on the enum but nothing sets them yet.
+- ~~SLA escalation (§6.4) is not implemented~~ — **built in Week 5 (D20)**: `escalation-job` runs
+  every 15 minutes, promoting unclaimed alerts and releasing idle-claimed ones. Left here struck
+  through rather than deleted, as a pointer for anyone still holding the stale assumption.
 - **Timezone handling is simplified.** All dates/times are treated as UTC; the plan's
   `Europe/Lisbon`-by-default, per-box timezone handling (quiet hours, week boundaries) isn't wired up.
   `Box.TimeZone` exists as a column but nothing reads it yet.

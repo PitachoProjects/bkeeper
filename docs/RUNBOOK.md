@@ -21,7 +21,8 @@ just `Up`). First run: bootstrap a box at `/bootstrap`, then import an `.xlsx`.
 | `escalation-job` | every 15 min | SLA escalation, claimed-idle release, auto-resolve, auto-expire |
 | `outreach-dispatcher` | every 15 min | Sends `Queued` outreach outside quiet hours |
 | `goals-evaluations-job` | 05:45 daily | R10 (goal at risk), R11 (eval overdue) |
-| `ml-scoring-job` | Sunday 23:30 | Weekly churn-risk scoring (shadow mode, R13) |
+| `health-score-job` | 05:50 daily | Computes the Athlete Health Score (attendance/consistency/booking/progress/engagement) for every active member against the currently-active `HealthScoreConfiguration` |
+| `ml-scoring-job` | Sunday 23:30 | Weekly churn-risk scoring (shadow mode, R13) — both the LightGBM ensemble and the Stage B logistic regression baseline |
 | `anonymization-job` | 06:00 daily | Anonymizes members cancelled 24+ months ago |
 
 Each has an on-demand trigger for testing/ops (see [README.md](../README.md) for the curl commands),
@@ -37,6 +38,31 @@ scripts/restore.sh ./backups/bkeeper_<ts>.dump        # restores into bkeeper_re
 Drilled live against the running stack while building this (see DECISIONS.md) — both scripts work.
 No automated backup schedule exists; this is a manual/cron-it-yourself pair of scripts.
 
+## Comparing the two churn models (Stage B vs. Stage C)
+
+`ml/app/logistic.py` trains a separate, interpretable logistic-regression baseline (Stage B)
+alongside the existing LightGBM ensemble (`ml/app/train.py`, Stage C) — same feature pipeline
+(`ml/app/features.py`), same time-based train/test split, registered under its own `model_type`
+(`logistic_regression` vs. `lightgbm_ensemble`) so neither overwrites the other in the model
+registry (`ml/models/`). Both stay shadow mode; `RiskScoresController` shows the LightGBM ensemble
+by default and the logistic regression as a comparison.
+
+```bash
+cd ml
+python -m app.logistic --version v1              # train + register the logistic baseline alone
+python backtest_compare.py --version v1          # both models, same split, side-by-side table
+python backtest_compare.py --json                # full metrics (precision/recall/AUC/calibration/coefficients) as JSON
+python backtest_compare.py --save --version v1   # also register both trained models
+```
+
+`GET /models` on the ML service (`bkeeper-ml`) returns both models' current metadata and metrics
+without retraining. Coefficients (direction + relative magnitude, standardized) are in the
+logistic model's `metrics.coefficients` — that's Stage B's interpretability, in place of the
+LightGBM model's SHAP-derived reasons.
+
+Runs on the synthetic generator until a real export exists (see OPEN_QUESTIONS.md) — read the
+numbers as an engineering sanity check, not a performance claim.
+
 ## Common operational tasks
 
 - **A member wants their data**: `GET /members/{id}/gdpr/export` (any authenticated staff) — one JSON
@@ -49,6 +75,20 @@ No automated backup schedule exists; this is a manual/cron-it-yourself pair of s
   single-box only; see OPEN_QUESTIONS.md on whether multi-box-per-deployment is ever needed).
 - **A password/JWT signing key needs rotating**: set `JWT_SIGNING_KEY` in the environment before
   `docker compose up` — rotating it invalidates all existing sessions immediately (no rolling rotation).
+- **Turning on AI retention summaries**: set `ANTHROPIC_API_KEY` in the environment before
+  `docker compose up` (optionally `ANTHROPIC_MODEL`, default `claude-opus-5`). Unset/empty by default —
+  the "Get AI summary" button on the retention dashboard stays disabled and `POST /insights/narrative`
+  returns a `NotConfigured` status instead of erroring. No DB access or metric computation ever happens
+  inside the LLM call — see `AnthropicNarrativeGenerator`'s guardrail system prompt.
+- **A class session's coach isn't linked to a `Coach` record yet** (e.g. after an Excel import, which
+  only ever sets `ClassSession.CoachName`): `POST /coaches/backfill` (Owner/Manager) creates a `Coach`
+  row for every distinct unlinked `CoachName` in the box and links the matching sessions. Safe to
+  re-run — it never touches an already-linked session or an existing `CoachName` string.
+- **Re-weighting the Health Score**: `PUT /health-score/config` (Owner/Manager) — also reachable from
+  Settings → Health score weights in the UI. Weights must sum to 100; saving creates a new
+  `HealthScoreConfiguration` version rather than editing in place, so scores already calculated under
+  the previous weights keep showing what they showed (see DECISIONS.md D29). `POST /health-score/run`
+  re-runs the daily job on demand.
 
 ## Known operational gaps (see OPEN_QUESTIONS.md for the full list)
 

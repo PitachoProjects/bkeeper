@@ -33,8 +33,9 @@ public class GoalsEvaluationsJob(
 
     public async Task RunForBoxAsync(Guid boxId, DateOnly asOf, CancellationToken ct = default)
     {
-        var goalAlerts = await CheckGoalsAtRiskAsync(boxId, asOf, ct);
-        var evalReminders = await CheckOverdueEvaluationsAsync(boxId, asOf, ct);
+        var ruleConfigs = await db.RuleConfigs.ToDictionaryAsync(r => r.RuleCode, ct);
+        var goalAlerts = ruleConfigs.TryGetValue("R10", out var r10) && !r10.Enabled ? 0 : await CheckGoalsAtRiskAsync(boxId, asOf, ct);
+        var evalReminders = ruleConfigs.TryGetValue("R11", out var r11) && !r11.Enabled ? 0 : await CheckOverdueEvaluationsAsync(boxId, asOf, ct);
         await db.SaveChangesAsync(ct);
         if (goalAlerts > 0 || evalReminders > 0)
             logger.LogInformation("Goals/evaluations job for box {BoxId}: {GoalAlerts} goal-at-risk alerts, {Reminders} eval reminders/tasks", boxId, goalAlerts, evalReminders);
