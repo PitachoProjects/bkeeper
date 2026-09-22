@@ -52,9 +52,12 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     needs: build
-    environment:
-      name: Production
-      url: ${{ steps.deploy-to-webapp.outputs.webapp-url }}
+    # No `environment:` block here on purpose: Azure's Deployment Center provisioned the
+    # federated identity credential for the plain branch subject
+    # (repo:PitachoProjects/bkeeper:ref:refs/heads/master), not a GitHub Environment-scoped one.
+    # Adding an `environment:` here changes the OIDC token's subject to append
+    # `:environment:<name>`, which no longer matches that credential and login fails with
+    # AADSTS700213.
     permissions:
       id-token: write #This is required for requesting the JWT
       contents: read #This is required for actions/checkout
