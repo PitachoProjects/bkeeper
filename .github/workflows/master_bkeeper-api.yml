@@ -18,6 +18,7 @@ on:
 
 env:
   API_PROJECT: src/BKeeper.Api/BKeeper.Api.csproj
+  AZURE_WEBAPP_NAME: bkeeper-api
 
 jobs:
   build:
@@ -75,10 +76,36 @@ jobs:
           tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_D14397BDCCA645499B91D1453ACC00CA }}
           subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_718B15551EF6480C876FD074DB2AF13F }}
 
-      - name: Deploy to Azure Web App
-        id: deploy-to-webapp
-        uses: azure/webapps-deploy@v3
-        with:
-          app-name: 'bkeeper-api'
-          slot-name: 'Production'
-          package: .
+      - name: Zip published app
+        run: zip -r ${{ github.workspace }}/../app.zip . -x '.git/*'
+
+      - name: Look up resource group
+        id: rg
+        run: |
+          RG=$(az webapp list --query "[?name=='${{ env.AZURE_WEBAPP_NAME }}'] | [0].resourceGroup" -o tsv)
+          if [ -z "$RG" ]; then
+            echo "::error::Could not find a Web App named '${{ env.AZURE_WEBAPP_NAME }}' in this subscription."
+            exit 1
+          fi
+          echo "name=$RG" >> "$GITHUB_OUTPUT"
+
+      # Linux App Service zip-deploys don't always infer the entry point on their own — pin it
+      # explicitly so the site always knows to run the API's own DLL, not guess at one.
+      - name: Set startup command
+        run: |
+          az webapp config set \
+            --resource-group ${{ steps.rg.outputs.name }} \
+            --name ${{ env.AZURE_WEBAPP_NAME }} \
+            --startup-file "dotnet BKeeper.Api.dll"
+
+      # --clean true wipes /home/site/wwwroot before extracting, so nothing from an earlier
+      # (e.g. pre-fix, whole-solution) deploy can linger and confuse what actually starts.
+      - name: Deploy to Azure Web App (clean)
+        run: |
+          az webapp deploy \
+            --resource-group ${{ steps.rg.outputs.name }} \
+            --name ${{ env.AZURE_WEBAPP_NAME }} \
+            --src-path ${{ github.workspace }}/../app.zip \
+            --type zip \
+            --clean true \
+            --restart true
