@@ -24,7 +24,10 @@ interface NavItem {
 // item already points at; if a feature needs a new destination, give it a real page/tab, not a
 // second name for an existing one.
 const items = computed<NavItem[]>(() => [
-  { to: '/dashboard/retention', label: t('dashboards.title') },
+  { to: '/dashboard/retention', label: t('dashboards.pages.retention') },
+  { to: '/dashboard/interventions', label: t('dashboards.pages.responsePerformance') },
+  { to: '/dashboard/attendance', label: t('dashboards.pages.workouts') },
+  { to: '/dashboard/my-week', label: t('dashboards.pages.myWeek') },
   { to: '/members', label: t('members.title') },
   { to: '/alerts', label: t('alerts.title') },
   { to: '/coaches', label: t('coaches.title') },
@@ -33,7 +36,6 @@ const items = computed<NavItem[]>(() => [
 ])
 
 const activeTo = computed(() => {
-  if (route.path.startsWith('/dashboard')) return '/dashboard/retention'
   if (route.path.startsWith('/members')) return '/members'
   return items.value.find((i) => route.path === i.to)?.to
 })

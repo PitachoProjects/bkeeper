@@ -12,6 +12,7 @@ interface RuleCatalogItem {
   family: string
   description: string
   enabled: boolean
+  toggleable: boolean
   cooldownDaysAmber: number
   cooldownDaysRed: number
 }
@@ -58,6 +59,9 @@ const healthScoreTotal = computed(() => {
   return Math.round((c.attendanceWeight + c.consistencyWeight + c.bookingBehaviourWeight + c.progressWeight + c.engagementWeight) * 10) / 10
 })
 const healthScoreTotalValid = computed(() => Math.abs(healthScoreTotal.value - 100) < 0.01)
+const enabledColumnHint = computed(() =>
+  rules.value.some((r) => !r.toggleable) ? `${t('settings.enabledHint')} ${t('settings.notToggleableHint')}` : t('settings.enabledHint'),
+)
 
 async function load() {
   loading.value = true
@@ -70,6 +74,7 @@ async function load() {
 }
 
 async function toggleRule(rule: RuleCatalogItem) {
+  if (!rule.toggleable) return
   const next = !rule.enabled
   await api.put(`/rules/${rule.code}/enabled`, { enabled: next })
   rule.enabled = next
@@ -115,7 +120,7 @@ onMounted(load)
             <th>{{ t('settings.code') }}</th>
             <th>{{ t('settings.family') }}</th>
             <th>{{ t('settings.description') }}</th>
-            <th>{{ t('settings.enabled') }}<InfoTip :text="t('settings.enabledHint')" /></th>
+            <th>{{ t('settings.enabled') }}<InfoTip :text="enabledColumnHint" /></th>
           </tr>
         </thead>
         <tbody>
@@ -125,7 +130,7 @@ onMounted(load)
             <td>{{ r.description }}</td>
             <td>
               <label class="switch">
-                <input type="checkbox" :checked="r.enabled" @change="toggleRule(r)" />
+                <input type="checkbox" :checked="r.enabled" :disabled="!r.toggleable" @change="toggleRule(r)" />
               </label>
             </td>
           </tr>
@@ -196,10 +201,6 @@ onMounted(load)
 </template>
 
 <style scoped>
-.card {
-  padding: 1rem 1.25rem;
-  margin-top: 1rem;
-}
 .hint {
   font-size: 0.85rem;
   color: var(--color-text-muted);

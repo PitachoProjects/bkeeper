@@ -101,13 +101,15 @@ public class HealthScoreController(BKeeperDbContext db, HealthScoreJob job, Audi
         return Ok(ToDto(updated));
     }
 
-    /// <summary>Runs the health score calculation for the caller's box on demand (also runs daily via the Worker).</summary>
+    /// <summary>Runs the health score calculation for the caller's box on demand (also runs daily via the
+    /// Worker). <paramref name="memberId"/> scopes the run to a single member — the manual "recompute for
+    /// this athlete" trigger on their profile.</summary>
     [HttpPost("health-score/run")]
-    public async Task<ActionResult<object>> Run()
+    public async Task<ActionResult<object>> Run([FromQuery] Guid? memberId)
     {
         if (!IsManagerOrOwner()) return Forbid();
 
-        var scored = await job.RunForBoxAsync(CurrentBoxId(), DateOnly.FromDateTime(DateTime.UtcNow));
+        var scored = await job.RunForBoxAsync(CurrentBoxId(), DateOnly.FromDateTime(DateTime.UtcNow), memberId);
         return Ok(new { scored });
     }
 

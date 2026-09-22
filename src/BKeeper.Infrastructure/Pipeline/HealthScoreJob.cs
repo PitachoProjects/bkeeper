@@ -26,17 +26,19 @@ public class HealthScoreJob(BKeeperDbContext db, CurrentBoxAccessor currentBox, 
         {
             using (currentBox.Use(boxId))
             {
-                await RunForBoxAsync(boxId, asOf, ct);
+                await RunForBoxAsync(boxId, asOf, ct: ct);
             }
         }
     }
 
-    public async Task<int> RunForBoxAsync(Guid boxId, DateOnly asOf, CancellationToken ct = default)
+    /// <summary><paramref name="memberId"/> scopes the run to a single member — the manual "recompute for
+    /// this athlete" trigger on their profile — instead of every active member in the box.</summary>
+    public async Task<int> RunForBoxAsync(Guid boxId, DateOnly asOf, Guid? memberId = null, CancellationToken ct = default)
     {
         var config = await GetOrCreateActiveConfigAsync(boxId, ct);
         var weights = ToWeights(config);
 
-        var members = await db.Members.Where(m => m.Status == MemberStatus.Active).ToListAsync(ct);
+        var members = await db.Members.Where(m => m.Status == MemberStatus.Active && (memberId == null || m.Id == memberId)).ToListAsync(ct);
         var scored = 0;
 
         foreach (var member in members)

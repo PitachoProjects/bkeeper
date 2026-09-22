@@ -83,6 +83,7 @@
     "description": "Description",
     "enabled": "Enabled",
     "enabledHint": "Turns this rule off for your box — it stops creating new alerts, existing ones are unaffected.",
+    "notToggleableHint": "Always on — not user-configurable yet.",
     "healthScore": {
       "title": "Health score weights",
       "hint": "How much each factor counts toward the composite Health Score. Must sum to 100% before saving.",
@@ -111,6 +112,7 @@
     "status": "Status",
     "assigned": "Assigned",
     "due": "Due",
+    "actions": "Actions",
     "claim": "Claim",
     "claimHint": "Assigns this alert to you so it drops off other coaches' queue. Anyone can claim any alert.",
     "sendMessage": "Send message",
@@ -131,10 +133,9 @@
     "send": "Send"
   },
   "dashboards": {
-    "title": "Dashboards",
-    "tabs": {
+    "pages": {
       "retention": "Retention",
-      "alertOps": "Alert ops",
+      "responsePerformance": "Response performance",
       "workouts": "Workouts",
       "myWeek": "My week"
     },
@@ -145,6 +146,7 @@
       "next14Days": "next 14 days after outreach"
     },
     "retention": {
+      "pageHint": "How many members you have, and how well you're keeping them — active counts, join-month cohort curves, and how long members typically stick around before cancelling.",
       "active": "Active",
       "newThisMonth": "New this month",
       "churnedThisMonth": "Churned this month",
@@ -156,6 +158,14 @@
       "cohortHint": "% of each join-month cohort still active, by months since joining.",
       "cohort": "Cohort",
       "size": "Size",
+      "rangeLabel": "Cohort range",
+      "ranges": {
+        "6m": "6 months",
+        "12m": "12 months",
+        "2y": "2 years",
+        "5y": "5 years"
+      },
+      "rangeEmpty": "No cohorts joined in this range.",
       "tenureTitle": "Tenure at churn",
       "tenureHint": "How long members stuck around before cancelling.",
       "coachFilter": "Coach",
@@ -172,31 +182,35 @@
       }
     },
     "alertOps": {
+      "pageHint": "How well the team is catching and responding to at-risk members: how fast alerts get claimed, whether outreach actually brings people back, and what kind of alerts you're getting.",
       "slaCompliance": "SLA compliance",
       "avgHoursToClaim": "Avg hours to claim",
       "saveRate": "Save rate",
       "treatedReturnRate": "Treated return rate",
       "holdoutReturnRate": "Holdout return rate",
       "volumeTitle": "Volume",
+      "volumeHint": "How many alerts were raised, by how urgent they are (severity) and what triggered them (family).",
       "bySeverity": "By severity",
       "byFamily": "By family",
       "outcomesTitle": "Outcomes mix",
+      "outcomesHint": "What happened to alerts once they were resolved.",
       "empty": "No resolved alerts yet."
     },
     "workouts": {
-      "heatmapTitle": "Day × window × type (last 12 weeks)",
+      "pageHint": "When members train, what they train, and how full classes are — use it to spot underused slots or shifting workout-type popularity.",
+      "heatmapTitle": "Visits by day × window (last 12 weeks)",
       "windowsHint": "Windows: Early before 08:00 · Morning 08:00–11:00 · Lunch 11:00–14:00 · Afternoon 14:00–17:00 · Evening after 17:00",
-      "day": "Day",
-      "window": "Window",
+      "allTypes": "All workout types",
+      "allClassTypes": "All class types",
       "type": "Type",
-      "visits": "Visits",
       "empty": "No attended visits in the last 12 weeks.",
       "fillTitle": "Class fill by slot",
+      "fillHint": "Average % of capacity booked, by class type and time window, last 12 weeks.",
       "classType": "Class type",
       "avgFill": "Avg fill",
       "fillEmpty": "No capacity data in the last 12 weeks.",
       "recentTitle": "Recent sessions",
-      "recentHint": "Last 20 sessions with a logged workout, last 12 weeks.",
+      "recentHint": "Last 20 sessions with a logged workout, last 12 weeks — hover a workout for its description.",
       "date": "Date",
       "workout": "Workout",
       "coach": "Coach",
@@ -204,9 +218,13 @@
       "recentEmpty": "No recent sessions with a logged workout."
     },
     "myWeek": {
+      "pageHint": "Your open coaching queue — alerts assigned to your role or claimed by you, due this week.",
       "openCoach": "Open (Coach)",
+      "openCoachHint": "Alerts currently assigned to the Coach role or claimed by you, not yet resolved.",
       "dueThisWeek": "Due this week",
+      "dueThisWeekHint": "Of the open alerts above, how many are due before this week ends.",
       "resolvedThisWeek": "Resolved this week",
+      "resolvedThisWeekHint": "Alerts (any assignment) resolved since Monday.",
       "openAlertsTitle": "Open alerts",
       "due": "Due",
       "empty": "Nothing open — nice week."
@@ -220,6 +238,19 @@
       "activity": "Activity & notes",
       "membershipAdmin": "Membership admin"
     },
+    "openAlerts": {
+      "title": "Open alerts",
+      "empty": "No open alerts for this member.",
+      "viewAll": "View in alert inbox"
+    },
+    "manualTriggers": {
+      "recomputeHealthScore": "Recompute health score",
+      "recomputeHealthScoreHint": "Runs the health score calculation for this member only, right now.",
+      "rerunRules": "Re-run alert rules",
+      "rerunRulesHint": "Runs the daily alert rule check for this member only, right now.",
+      "running": "Running…",
+      "done": "Done."
+    },
     "risk": {
       "title": "Churn risk",
       "shadowMode": "shadow mode",
@@ -227,6 +258,12 @@
       "chance": "chance of churn in 28 days",
       "weekOf": "week of",
       "model": "model",
+      "bands": {
+        "red": "High risk",
+        "amber": "Moderate risk",
+        "green": "Low risk"
+      },
+      "reasonsHint": "These compare the member's own recent visits to their own past pattern (e.g. \"pace\" = visits per week) — not to other members.",
       "empty": "No score yet — runs weekly (Sunday), or trigger it from the alert inbox."
     },
     "healthScore": {
@@ -234,6 +271,11 @@
       "hint": "A composite 0-100 score from attendance, consistency, booking behaviour, goal progress and engagement — deterministic and configurable, not a prediction.",
       "trend": "Trend",
       "asOf": "as of",
+      "bands": {
+        "green": "Healthy",
+        "amber": "Watch",
+        "red": "Needs attention"
+      },
       "insufficientTitle": "Not enough history yet",
       "insufficientHint": "This member hasn't been around long enough (or hasn't trained enough sessions) for a reliable score.",
       "tenureDays": "Tenure",
@@ -313,6 +355,9 @@
       "title": "Timeline",
       "all": "All",
       "empty": "No activity yet.",
+      "prev": "Previous",
+      "next": "Next",
+      "page": "Page {page} of {total}",
       "filters": {
         "note": "Note",
         "Attended": "Attended",

@@ -3,7 +3,7 @@ import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { api, ApiError } from '@/lib/api'
 
-const props = defineProps<{ metricKey: string }>()
+const props = defineProps<{ metricKey: string; iconOnly?: boolean }>()
 
 const { t } = useI18n()
 
@@ -53,13 +53,21 @@ async function toggle() {
 </script>
 
 <template>
-  <span class="explain-this">
-    <button type="button" class="ghost trigger" :class="{ active: open }" @click="toggle" :aria-expanded="open">
+  <span class="explain-this" :class="{ corner: iconOnly }">
+    <button
+      type="button"
+      class="ghost trigger"
+      :class="{ active: open, 'icon-only': iconOnly }"
+      :title="iconOnly ? t('explainThis.trigger') : undefined"
+      @click="toggle"
+      :aria-expanded="open"
+      :aria-label="iconOnly ? t('explainThis.trigger') : undefined"
+    >
       <span class="glyph" aria-hidden="true">ⓘ</span>
-      {{ t('explainThis.trigger') }}
+      <template v-if="!iconOnly">{{ t('explainThis.trigger') }}</template>
     </button>
 
-    <div v-if="open" class="panel card">
+    <div v-if="open" class="panel card" :class="{ 'panel-corner': iconOnly }">
       <p v-if="loading" class="state">{{ t('explainThis.loading') }}</p>
       <p v-else-if="error" class="state error">{{ t('explainThis.error') }}</p>
       <dl v-else-if="detail">
@@ -87,6 +95,11 @@ async function toggle() {
   position: relative;
   display: inline-block;
 }
+.explain-this.corner {
+  position: absolute;
+  top: 0.6rem;
+  right: 0.6rem;
+}
 .trigger {
   display: inline-flex;
   align-items: center;
@@ -99,6 +112,13 @@ async function toggle() {
   color: var(--color-text-muted);
   vertical-align: middle;
   margin-left: 0.35rem;
+}
+.trigger.icon-only {
+  margin-left: 0;
+  padding: 0.1rem;
+  width: 1.35rem;
+  height: 1.35rem;
+  justify-content: center;
 }
 .trigger:hover,
 .trigger.active {
@@ -119,6 +139,10 @@ async function toggle() {
   font-weight: normal;
   text-align: left;
   white-space: normal;
+}
+.panel-corner {
+  left: auto;
+  right: 0;
 }
 .state {
   font-size: 0.85rem;

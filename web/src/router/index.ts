@@ -1,10 +1,11 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 
-// Six real pages, six nav entries, one route each — see App.vue for the nav list that mirrors
-// this 1:1. Old URLs from a previous nav layout (fake "groups" that pointed multiple sidebar
-// entries at the same page, and a couple of renamed sections) redirect below so no bookmark or
-// external link breaks, but none of them are linked from the UI anymore.
+// Nine real pages, nine nav entries, one route each — see App.vue for the nav list that mirrors
+// this 1:1 (the four dashboard pages used to be tabs on one /dashboard page; each is a real page
+// now). Old URLs from a previous nav layout (fake "groups" that pointed multiple sidebar entries
+// at the same page, and a couple of renamed sections) redirect below so no bookmark or external
+// link breaks, but none of them are linked from the UI anymore.
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
@@ -18,11 +19,12 @@ const router = createRouter({
     { path: '/f/:token', name: 'public-form', component: () => import('@/views/PublicFormView.vue'), meta: { public: true } },
     { path: '/', redirect: '/dashboard/retention' },
 
-    // Dashboard — one page, four real tabs (Retention / Workouts / Alert ops / My week) driven
-    // by the :tab param; see DashboardsView.vue's ROUTE_TO_TAB map. Every tab is reachable from
-    // exactly one place: the tab bar on this page, not from the sidebar.
+    // Dashboards — four separate pages, each its own sidebar entry (not tabs on one page).
     { path: '/dashboard', redirect: '/dashboard/retention' },
-    { path: '/dashboard/:tab', name: 'dashboard', component: () => import('@/views/DashboardsView.vue') },
+    { path: '/dashboard/retention', name: 'dashboard-retention', component: () => import('@/views/dashboards/RetentionDashboardView.vue') },
+    { path: '/dashboard/interventions', name: 'dashboard-response-performance', component: () => import('@/views/dashboards/ResponsePerformanceDashboardView.vue') },
+    { path: '/dashboard/attendance', name: 'dashboard-workouts', component: () => import('@/views/dashboards/WorkoutsDashboardView.vue') },
+    { path: '/dashboard/my-week', name: 'dashboard-my-week', component: () => import('@/views/dashboards/MyWeekDashboardView.vue') },
 
     // Members — one page; "at risk" / "new" / etc. are quick filters via ?filter=, not separate
     // routes, so they can't accidentally spawn separate nav entries again later.

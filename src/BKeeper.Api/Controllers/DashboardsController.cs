@@ -20,7 +20,7 @@ public record ClassFillDto(string ClassType, string Window, double AvgFillPct);
 public record RecentSessionDto(DateTimeOffset Date, string ClassType, string? WorkoutTitle, string? WorkoutDescription, string Tag, int AttendedCount, string? CoachName);
 public record WorkoutMixDto(List<HeatmapCellDto> WindowTypeHeatmap, List<ClassFillDto> ClassFillBySlot, List<RecentSessionDto> RecentSessions);
 
-public record MyWeekAlertDto(Guid Id, Guid MemberId, string MemberName, string Severity, string Status, DateTimeOffset DueAt);
+public record MyWeekAlertDto(Guid Id, Guid MemberId, string MemberName, string Family, string Severity, string Status, DateTimeOffset DueAt);
 public record MyWeekDto(List<MyWeekAlertDto> OpenAlerts, int DueThisWeekCount, int ResolvedThisWeekCount, int CelebrationsThisWeekCount);
 
 [ApiController]
@@ -202,7 +202,7 @@ public class DashboardsController(BKeeperDbContext db, IRetentionOverviewService
             .Where(a => a.Status != AlertStatus.Resolved && a.Status != AlertStatus.AutoResolved)
             .Where(a => a.AssignedRole == UserRole.Coach || a.ClaimedBy == userId)
             .OrderBy(a => a.DueAt)
-            .Select(a => new MyWeekAlertDto(a.Id, a.MemberId, a.Member!.Name, a.Severity.ToString(), a.Status.ToString(), a.DueAt))
+            .Select(a => new MyWeekAlertDto(a.Id, a.MemberId, a.Member!.Name, a.Family.ToString(), a.Severity.ToString(), a.Status.ToString(), a.DueAt))
             .ToListAsync();
 
         var dueThisWeek = open.Count(a => a.DueAt >= weekStart && a.DueAt < weekEnd);
