@@ -163,7 +163,9 @@ onMounted(async () => {
           <td><RouterLink :to="`/members/${a.memberId}`">{{ a.memberName }}</RouterLink></td>
           <td>{{ a.family }}</td>
           <td class="rule-chips">
-            <span v-for="code in a.ruleCodes" :key="code" class="badge rule-chip" :title="ruleDescriptions[code] ?? code">{{ code }}</span>
+            <span v-for="code in a.ruleCodes" :key="code" class="badge rule-chip">
+              {{ code }}<span v-if="ruleDescriptions[code]" class="rule-desc"> — {{ ruleDescriptions[code] }}</span>
+            </span>
           </td>
           <td><span class="badge status">{{ a.status }}</span></td>
           <td>{{ a.assignedRole }}</td>
@@ -247,8 +249,11 @@ onMounted(async () => {
   gap: 0.25rem;
 }
 .rule-chip {
-  cursor: help;
   font-variant-numeric: tabular-nums;
+}
+.rule-desc {
+  font-weight: normal;
+  opacity: 0.75;
 }
 .badge.status {
   text-transform: none;

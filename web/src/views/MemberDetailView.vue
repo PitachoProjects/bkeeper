@@ -356,7 +356,9 @@ onMounted(async () => {
         <li v-for="a in openAlerts" :key="a.id">
           <span class="badge" :class="a.severity.toLowerCase()">{{ severityLabel(a.severity) }}</span>
           <span class="family">{{ a.family }}</span>
-          <span v-for="code in a.ruleCodes" :key="code" class="badge rule-chip" :title="ruleDescriptions[code] ?? code">{{ code }}</span>
+          <span v-for="code in a.ruleCodes" :key="code" class="badge rule-chip">
+            {{ code }}<span v-if="ruleDescriptions[code]" class="rule-desc"> — {{ ruleDescriptions[code] }}</span>
+          </span>
           <span class="date">{{ t('alerts.due') }}: {{ new Date(a.dueAt).toLocaleString() }}</span>
         </li>
       </ul>
@@ -682,8 +684,11 @@ onMounted(async () => {
   font-weight: 600;
 }
 .alert-banner-list .rule-chip {
-  cursor: help;
   font-variant-numeric: tabular-nums;
+}
+.alert-banner-list .rule-desc {
+  font-weight: normal;
+  opacity: 0.75;
 }
 .manual-triggers {
   display: flex;
